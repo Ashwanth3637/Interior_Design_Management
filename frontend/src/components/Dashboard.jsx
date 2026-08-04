@@ -13,7 +13,8 @@ import {
   Briefcase,
   Users,
   HardHat,
-  Calculator
+  Calculator,
+  UserPlus
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -243,6 +244,31 @@ const Dashboard = () => {
               ) : (
                 <div className="panel-status restricted">
                   <Lock size={16} /> Restricted to PMs & Admins
+                </div>
+              )}
+            </div>
+
+            {/* Sales Executive Panel */}
+            <div className={`role-panel ${['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role) ? 'active' : 'disabled'}`}>
+              <div className="role-panel-header">
+                <UserPlus size={24} className="panel-icon designer" style={{ color: '#2563eb' }} />
+                <h4>Sales Executive Portal</h4>
+              </div>
+              <p>Register client leads, record budget estimates, and initiate project workflows for PM handoff.</p>
+              {(['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) && (
+                <div style={{ marginTop: '1rem' }}>
+                  <Link to="/sales-executive" style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 1rem', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}>
+                    <UserPlus size={16} /> Open Sales Dashboard
+                  </Link>
+                </div>
+              )}
+              {(['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) ? (
+                <div className="panel-status success" style={{ marginTop: '0.75rem' }}>
+                  <CheckCircle2 size={16} /> Access Granted
+                </div>
+              ) : (
+                <div className="panel-status restricted">
+                  <Lock size={16} /> Restricted to Sales Execs & Admins
                 </div>
               )}
             </div>

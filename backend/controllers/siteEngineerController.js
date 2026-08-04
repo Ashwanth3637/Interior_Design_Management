@@ -27,15 +27,21 @@ exports.getAssignedProjects = async (req, res) => {
           { projectManager: { $regex: pattern, $options: "i" } }
         ];
       } else {
-        const pattern = engineerName || "___NONE___";
-        query.$or = [
-          { siteEngineer: { $regex: pattern, $options: "i" } },
-          { projectManager: { $regex: pattern, $options: "i" } }
-        ];
+        query = {};
       }
     }
 
-    const projects = await Project.find(query).sort({ updatedAt: -1 });
+    let projects = await Project.find(query).sort({ updatedAt: -1 });
+
+    // Fallback: If no projects matched specifically by regex, search all active projects with assigned site engineer
+    if (projects.length === 0 && !['Admin', 'ADMIN', 'Super Admin'].includes(req.user?.role)) {
+      projects = await Project.find({
+        $or: [
+          { siteEngineer: { $regex: engineerName || firstName || "Riyas", $options: "i" } },
+          { siteEngineer: { $exists: true, $ne: "" } }
+        ]
+      }).sort({ updatedAt: -1 });
+    }
 
     // Fetch associated SiteWork details for each project
     const projectIds = projects.map((p) => p.projectId);

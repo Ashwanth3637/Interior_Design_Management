@@ -14,6 +14,7 @@ import ClientPortal from './components/ClientPortal';
 import SiteEngineerDashboard from './components/SiteEngineerDashboard';
 import ProjectManagerDashboard from './components/ProjectManagerDashboard';
 import AccountantDashboard from './components/AccountantDashboard';
+import SalesExecutiveDashboard from './components/SalesExecutiveDashboard';
 import ScrollToTop from './components/ScrollToTop';
 import './App.css';
 
@@ -69,6 +70,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
                 <ClientManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sales-executive"
+            element={
+              <ProtectedRoute allowedRoles={['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+                <SalesExecutiveDashboard />
               </ProtectedRoute>
             }
           />

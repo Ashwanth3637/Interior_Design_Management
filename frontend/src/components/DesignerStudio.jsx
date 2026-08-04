@@ -131,7 +131,7 @@ const DesignerStudio = () => {
     fetchAssignedProjects();
     setSuccessMsg('');
     window.scrollTo({ top: 0, behavior: 'instant' });
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (successMsg) {

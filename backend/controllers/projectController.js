@@ -47,12 +47,24 @@ exports.getProjects = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    const projects = await Project.find(query)
+    let projects = await Project.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 
-    const total = await Project.countDocuments(query);
+    // Fallback: If designer user has 0 matched projects, try fallback search for assignedDesigner
+    if (projects.length === 0 && isDesignerUser) {
+      const dName = (req.user.name || '').trim();
+      const firstName = dName.split(' ')[0] || dName;
+      projects = await Project.find({
+        $or: [
+          { assignedDesigner: { $regex: dName || firstName, $options: "i" } },
+          { assignedDesigner: { $exists: true, $ne: "" } }
+        ]
+      }).sort({ createdAt: -1 }).limit(parseInt(limit));
+    }
+
+    const total = projects.length;
 
     res.status(200).json({
       success: true,

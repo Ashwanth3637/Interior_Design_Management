@@ -30,6 +30,8 @@ const Login = () => {
         navigate('/pm-dashboard');
       } else if (['Accountant', 'ACCOUNTANT'].includes(role)) {
         navigate('/accountant');
+      } else if (['Sales Executive', 'SALES_EXECUTIVE'].includes(role)) {
+        navigate('/sales-executive');
       } else if (['Client', 'CLIENT', 'Customer'].includes(role)) {
         navigate('/client-portal');
       } else {

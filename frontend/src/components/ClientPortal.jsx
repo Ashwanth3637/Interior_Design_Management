@@ -23,6 +23,7 @@ import {
   Layers
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import WorkflowStepper from './WorkflowStepper';
 
 const ClientPortal = () => {
   const { user } = useContext(AuthContext);
@@ -214,6 +215,14 @@ const ClientPortal = () => {
         </div>
       )}
 
+      {/* Live Workflow Stepper Bar */}
+      {project && (
+        <WorkflowStepper
+          currentStage={project.workflowStage || (project.designApprovalStatus === 'Approved' ? 'PM Design Sign-off' : 'Client Review')}
+          advancePaymentPaid={project.advancePaymentPaid || false}
+        />
+      )}
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '4rem', color: '#64748b', fontSize: '1rem' }}>
           Fetching your project details from database...
@@ -356,7 +365,7 @@ const ClientPortal = () => {
                           <div style={{ display: 'flex', gap: '0.4rem' }}>
                             <button
                               onClick={() => setPreviewImage(ds)}
-                              style={{ flex: 1, backgroundColor: '#7c3aed', color: '#ffffff', border: 'none', padding: '0.45rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
+                              style={{ flex: 1, backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.45rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
                             >
                               <Eye size={13} /> Preview
                             </button>

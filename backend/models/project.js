@@ -129,6 +129,34 @@ const projectSchema = new mongoose.Schema(
             enum: ["Planning", "In Progress", "Review", "Completed", "On Hold"],
             default: "Planning",
         },
+        workflowStage: {
+            type: String,
+            enum: [
+                "Client Registration",
+                "Project Setup",
+                "Design Upload",
+                "Client Review",
+                "PM Design Sign-off",
+                "Quotation & Advance Payment",
+                "Site Execution",
+                "Stage Payments",
+                "Completion & Final Inspection",
+                "Final Payment & Handover"
+            ],
+            default: "Design Upload",
+        },
+        advancePaymentPaid: {
+            type: Boolean,
+            default: false,
+        },
+        advancePaymentAmount: {
+            type: Number,
+            default: 0,
+        },
+        quotationApproved: {
+            type: Boolean,
+            default: false,
+        },
         progressPercentage: {
             type: Number,
             min: 0,

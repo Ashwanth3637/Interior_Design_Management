@@ -20,6 +20,7 @@ import {
   Edit3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import WorkflowStepper from './WorkflowStepper';
 
 const SiteEngineerDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -79,7 +80,7 @@ const SiteEngineerDashboard = () => {
   useEffect(() => {
     fetchSiteProjects();
     window.scrollTo({ top: 0, behavior: 'instant' });
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (successMsg) {
@@ -359,6 +360,14 @@ const SiteEngineerDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Live Workflow Stepper Bar */}
+        {selectedProject && (
+          <WorkflowStepper
+            currentStage={selectedProject.workflowStage || 'Site Execution'}
+            advancePaymentPaid={selectedProject.advancePaymentPaid || false}
+          />
+        )}
 
         {/* NAVIGATION MODULE TABS */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.4rem', borderBottom: '1px solid #e2e8f0' }}>
