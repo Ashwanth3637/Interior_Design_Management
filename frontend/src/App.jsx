@@ -11,6 +11,9 @@ import ProjectManagement from './components/ProjectManagement';
 import ClientManagement from './components/ClientManagement';
 import DesignerStudio from './components/DesignerStudio';
 import ClientPortal from './components/ClientPortal';
+import SiteEngineerDashboard from './components/SiteEngineerDashboard';
+import ProjectManagerDashboard from './components/ProjectManagerDashboard';
+import AccountantDashboard from './components/AccountantDashboard';
 import ScrollToTop from './components/ScrollToTop';
 import './App.css';
 
@@ -66,6 +69,30 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
                 <ClientManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/accountant"
+            element={
+              <ProtectedRoute allowedRoles={['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+                <AccountantDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pm-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+                <ProjectManagerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/site-engineer"
+            element={
+              <ProtectedRoute allowedRoles={['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+                <SiteEngineerDashboard />
               </ProtectedRoute>
             }
           />

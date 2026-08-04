@@ -13,10 +13,15 @@ const designSchema = new mongoose.Schema({
 
 const invoiceSchema = new mongoose.Schema({
     invoiceNumber: { type: String, required: true },
-    title: { type: String, required: true },
+    title: { type: String, default: "Client Invoice" },
+    installmentType: { type: String, default: "Advance Payment" },
     amount: { type: Number, required: true },
-    status: { type: String, enum: ["Unpaid", "Paid"], default: "Unpaid" },
-    paidAt: { type: Date },
+    paidAmount: { type: Number, default: 0 },
+    status: { type: String, enum: ["Pending", "Unpaid", "Paid", "Overdue"], default: "Pending" },
+    issueDate: { type: Date, default: Date.now },
+    dueDate: { type: Date },
+    paidDate: { type: Date },
+    notes: { type: String, default: "" },
 });
 
 const timelineSchema = new mongoose.Schema({
@@ -103,6 +108,14 @@ const projectSchema = new mongoose.Schema(
         siteEngineer: {
             type: String,
             default: "",
+        },
+        salesExecutive: {
+            type: String,
+            default: "Unassigned",
+        },
+        accountant: {
+            type: String,
+            default: "Unassigned",
         },
         startDate: {
             type: Date,

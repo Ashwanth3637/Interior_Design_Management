@@ -11,7 +11,9 @@ import {
   Layers,
   Settings,
   Briefcase,
-  Users
+  Users,
+  HardHat,
+  Calculator
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -40,16 +42,28 @@ const Dashboard = () => {
 
   const isUserAdmin = isAdmin;
   const isUserDesigner = ['Designer', 'INTERIOR_DESIGNER', 'Interior Designer'].includes(user?.role);
+  const isUserSiteEngineer = ['SITE_ENGINEER', 'Site Engineer'].includes(user?.role);
+  const isUserPM = ['PROJECT_MANAGER', 'Project Manager'].includes(user?.role);
+  const isUserSales = ['SALES_EXECUTIVE', 'Sales Executive'].includes(user?.role);
+  const isUserAccountant = ['ACCOUNTANT', 'Accountant'].includes(user?.role);
 
   const getPortalTitle = () => {
     if (isUserAdmin) return 'Admin Dashboard';
     if (isUserDesigner) return 'Designer Dashboard';
+    if (isUserSiteEngineer) return 'Site Engineer Dashboard';
+    if (isUserPM) return 'Project Manager Dashboard';
+    if (isUserSales) return 'Sales Executive Dashboard';
+    if (isUserAccountant) return 'Accountant Dashboard';
     return 'Client Dashboard';
   };
 
   const getWelcomeDescription = () => {
     if (isUserAdmin) return 'Manage employee records, project assignments, client databases, and executive reports.';
     if (isUserDesigner) return 'View your assigned interior projects, upload 2D floor plans & 3D renders, and select material specifications.';
+    if (isUserSiteEngineer) return 'Track live site execution, log daily work & workers, upload site photos, and report site issues.';
+    if (isUserPM) return 'Monitor project timelines, resource allocation, and milestone approvals.';
+    if (isUserSales) return 'Manage client leads, quotations, and contract onboardings.';
+    if (isUserAccountant) return 'Track client payments, vendor invoices, and project budgets.';
     return 'Track live renovation progress, approve 2D & 3D room designs, and view invoice billing.';
   };
 
@@ -204,6 +218,81 @@ const Dashboard = () => {
               ) : (
                 <div className="panel-status restricted">
                   <Lock size={16} /> Restricted to Designers & Admins
+                </div>
+              )}
+            </div>
+
+            {/* Project Manager Panel */}
+            <div className={`role-panel ${['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role) ? 'active' : 'disabled'}`}>
+              <div className="role-panel-header">
+                <Briefcase size={24} className="panel-icon designer" style={{ color: '#2563eb' }} />
+                <h4>Project Manager Portal</h4>
+              </div>
+              <p>Manage all projects, assign employee teams, track timelines, approve work, and generate reports.</p>
+              {(['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) && (
+                <div style={{ marginTop: '1rem' }}>
+                  <Link to="/pm-dashboard" style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 1rem', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}>
+                    <Briefcase size={16} /> Open PM Dashboard
+                  </Link>
+                </div>
+              )}
+              {(['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) ? (
+                <div className="panel-status success" style={{ marginTop: '0.75rem' }}>
+                  <CheckCircle2 size={16} /> Access Granted
+                </div>
+              ) : (
+                <div className="panel-status restricted">
+                  <Lock size={16} /> Restricted to PMs & Admins
+                </div>
+              )}
+            </div>
+
+            {/* Accountant Panel */}
+            <div className={`role-panel ${['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role) ? 'active' : 'disabled'}`}>
+              <div className="role-panel-header">
+                <Calculator size={24} className="panel-icon designer" style={{ color: '#2563eb' }} />
+                <h4>Accountant Portal</h4>
+              </div>
+              <p>Manage client invoices, track multi-stage payments, maintain site expenses, and generate reports.</p>
+              {(['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) && (
+                <div style={{ marginTop: '1rem' }}>
+                  <Link to="/accountant" style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 1rem', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}>
+                    <Calculator size={16} /> Open Accountant Dashboard
+                  </Link>
+                </div>
+              )}
+              {(['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) ? (
+                <div className="panel-status success" style={{ marginTop: '0.75rem' }}>
+                  <CheckCircle2 size={16} /> Access Granted
+                </div>
+              ) : (
+                <div className="panel-status restricted">
+                  <Lock size={16} /> Restricted to Accountants & Admins
+                </div>
+              )}
+            </div>
+
+            {/* Site Engineer Panel */}
+            <div className={`role-panel ${['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role) ? 'active' : 'disabled'}`}>
+              <div className="role-panel-header">
+                <HardHat size={24} className="panel-icon designer" style={{ color: 'blue' }} />
+                <h4>Site Engineer Portal</h4>
+              </div>
+              <p>Track site execution, log daily work & workers, upload site photos, and report site issues.</p>
+              {(['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) && (
+                <div style={{ marginTop: '1rem' }}>
+                  <Link to="/site-engineer" style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 1rem', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)' }}>
+                    <HardHat size={16} /> Open Site Dashboard
+                  </Link>
+                </div>
+              )}
+              {(['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) ? (
+                <div className="panel-status success" style={{ marginTop: '0.75rem' }}>
+                  <CheckCircle2 size={16} /> Access Granted
+                </div>
+              ) : (
+                <div className="panel-status restricted">
+                  <Lock size={16} /> Restricted to Site Engineers & Admins
                 </div>
               )}
             </div>

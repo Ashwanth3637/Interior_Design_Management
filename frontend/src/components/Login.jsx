@@ -24,6 +24,12 @@ const Login = () => {
       const role = res.user?.role || '';
       if (['Designer', 'INTERIOR_DESIGNER', 'Interior Designer'].includes(role)) {
         navigate('/designer-studio');
+      } else if (['Site Engineer', 'SITE_ENGINEER'].includes(role)) {
+        navigate('/site-engineer');
+      } else if (['Project Manager', 'PROJECT_MANAGER'].includes(role)) {
+        navigate('/pm-dashboard');
+      } else if (['Accountant', 'ACCOUNTANT'].includes(role)) {
+        navigate('/accountant');
       } else if (['Client', 'CLIENT', 'Customer'].includes(role)) {
         navigate('/client-portal');
       } else {
