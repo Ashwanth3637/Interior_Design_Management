@@ -1,0 +1,45 @@
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+const connectDB = require("./config/db");
+
+// Initialize express app
+const app = express();
+
+// Connect to MongoDB
+connectDB();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Routes
+app.use("/api/auth", require("./routes/authRoutes"));
+app.use("/api/employees", require("./routes/employeeRoutes"));
+app.use("/api/projects", require("./routes/projectRoutes"));
+app.use("/api/clients", require("./routes/clientRoutes"));
+
+// Test Route
+app.get("/", (req, res) => {
+    res.json({
+        status: "success",
+        message: "Interior Design Management API Server is online!",
+        timestamp: new Date()
+    });
+});
+
+// Centralized Error Handling Middleware
+app.use((err, req, res, next) => {
+    console.error("Unhandled Error:", err.stack);
+    res.status(500).json({
+        success: false,
+        message: err.message || "Internal Server Error",
+    });
+});
+
+// Start Server
+const PORT = process.env.PORT || 5001;
+
+app.listen(PORT, () => {
+    console.log(`🚀 Server is running on port ${PORT}`);
+});

@@ -1,0 +1,144 @@
+const mongoose = require("mongoose");
+
+const designSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    designType: {
+        type: String,
+        enum: ["2D Floor Plan", "3D Render", "Moodboard", "Material Catalogue"],
+        default: "2D Floor Plan",
+    },
+    fileUrl: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now },
+});
+
+const invoiceSchema = new mongoose.Schema({
+    invoiceNumber: { type: String, required: true },
+    title: { type: String, required: true },
+    amount: { type: Number, required: true },
+    status: { type: String, enum: ["Unpaid", "Paid"], default: "Unpaid" },
+    paidAt: { type: Date },
+});
+
+const timelineSchema = new mongoose.Schema({
+    phase: { type: String, required: true },
+    description: { type: String, default: "" },
+    status: {
+        type: String,
+        enum: ["Scheduled", "In Progress", "Completed"],
+        default: "Scheduled",
+    },
+});
+
+const materialSchema = new mongoose.Schema({
+    materialName: { type: String, required: true },
+    brand: { type: String, default: "" },
+    quantity: { type: Number, default: 1 },
+    unit: { type: String, default: "Units" },
+    estimatedPrice: { type: Number, required: true },
+    status: { type: String, enum: ["Pending", "Approved"], default: "Pending" },
+    addedBy: { type: String, default: "Interior Designer" },
+});
+
+const projectSchema = new mongoose.Schema(
+    {
+        projectId: {
+            type: String,
+            required: [true, "Project ID is required"],
+            unique: true,
+            trim: true,
+        },
+        projectName: {
+            type: String,
+            required: [true, "Project name is required"],
+            trim: true,
+        },
+        clientName: {
+            type: String,
+            required: [true, "Client name is required"],
+            trim: true,
+        },
+        clientEmail: {
+            type: String,
+            required: [true, "Client email is required"],
+            lowercase: true,
+            trim: true,
+        },
+        clientPhone: {
+            type: String,
+            required: [true, "Client phone number is required"],
+            trim: true,
+        },
+        location: {
+            type: String,
+            required: [true, "Site location is required"],
+        },
+        projectType: {
+            type: String,
+            enum: [
+                "Residential",
+                "Commercial",
+                "Renovation",
+                "Modular Kitchen",
+                "Full Villa Interior",
+            ],
+            default: "Residential",
+        },
+        budget: {
+            type: Number,
+            required: [true, "Project budget is required"],
+            default: 0,
+        },
+        spentAmount: {
+            type: Number,
+            default: 0,
+        },
+        assignedDesigner: {
+            type: String,
+            required: [true, "Assigned Interior Designer is required"],
+        },
+        projectManager: {
+            type: String,
+            default: "",
+        },
+        siteEngineer: {
+            type: String,
+            default: "",
+        },
+        startDate: {
+            type: Date,
+            default: Date.now,
+        },
+        expectedCompletionDate: {
+            type: Date,
+        },
+        status: {
+            type: String,
+            enum: ["Planning", "In Progress", "Review", "Completed", "On Hold"],
+            default: "Planning",
+        },
+        progressPercentage: {
+            type: Number,
+            min: 0,
+            max: 100,
+            default: 0,
+        },
+        designApprovalStatus: {
+            type: String,
+            enum: ["Pending Review", "Approved", "Changes Requested"],
+            default: "Pending Review",
+        },
+        clientFeedback: {
+            type: String,
+            default: "",
+        },
+        designs: [designSchema],
+        invoices: [invoiceSchema],
+        timeline: [timelineSchema],
+        materials: [materialSchema],
+    },
+    {
+        timestamps: true,
+    }
+);
+
+module.exports = mongoose.model("Project", projectSchema);

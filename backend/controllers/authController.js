@@ -1,0 +1,282 @@
+const User = require('../models/User');
+const Client = require('../models/Client');
+const crypto = require('crypto');
+
+// Helper function to create token response
+const sendTokenResponse = (user, statusCode, res, message) => {
+  const token = user.getSignedJwtToken();
+
+  const userObject = {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    phone: user.phone || '',
+    profileImage: user.profileImage || '',
+    isActive: user.isActive,
+    createdAt: user.createdAt,
+  };
+
+  res.status(statusCode).json({
+    success: true,
+    message: message || 'Operation successful',
+    token,
+    user: userObject,
+  });
+};
+
+// @desc    Register new user
+// @route   POST /api/auth/register
+// @access  Public
+exports.registerUser = async (req, res) => {
+  try {
+    const { name, email, password, role, phone, profileImage } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields (name, email, password)',
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: { $regex: `^${email.trim()}$`, $options: 'i' } });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'An account with this email address already exists.',
+      });
+    }
+
+    // Create user
+    const user = await User.create({
+      name,
+      email: email.trim().toLowerCase(),
+      password,
+      role: role || 'Client',
+      phone: phone || '',
+      profileImage: profileImage || '',
+    });
+
+    sendTokenResponse(user, 201, res, 'User registered successfully');
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server Error during registration',
+    });
+  }
+};
+
+// @desc    Login user
+// @route   POST /api/auth/login
+// @access  Public
+exports.loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide both email and password',
+      });
+    }
+
+    const cleanEmail = email.trim();
+
+    // Check user existence with password selected (case-insensitive)
+    let user = await User.findOne({ email: { $regex: `^${cleanEmail}$`, $options: 'i' } }).select('+password');
+
+    // If user document does not exist yet, check if a Client record exists for this email
+    if (!user) {
+      const client = await Client.findOne({ email: { $regex: `^${cleanEmail}$`, $options: 'i' } });
+      if (client) {
+        // Auto-provision User login for this Client
+        user = await User.create({
+          name: client.fullName,
+          email: client.email.toLowerCase(),
+          password: password || 'Client123!',
+          role: 'Client',
+          phone: client.phone || '',
+        });
+        user = await User.findById(user._id).select('+password');
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
+    }
+
+    // Check password match
+    let isMatch = await user.matchPassword(password);
+
+    // Fallback check for Client default password if custom password check failed
+    if (!isMatch && ['Client', 'CLIENT', 'Customer'].includes(user.role)) {
+      const defaultMatch = await user.matchPassword('Client123!');
+      if (defaultMatch) {
+        isMatch = true;
+      }
+    }
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
+    }
+
+    // Check if user active
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is deactivated.',
+      });
+    }
+
+    sendTokenResponse(user, 200, res, 'Login successful');
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server Error during login',
+    });
+  }
+};
+
+// @desc    Get current logged in user
+// @route   GET /api/auth/me
+// @access  Private
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error fetching user profile',
+    });
+  }
+};
+
+// @desc    Update user details
+// @route   PUT /api/auth/updatedetails
+// @access  Private
+exports.updateDetails = async (req, res) => {
+  try {
+    const fieldsToUpdate = {
+      name: req.body.name,
+      phone: req.body.phone,
+      profileImage: req.body.profileImage,
+    };
+
+    // Remove undefined fields
+    Object.keys(fieldsToUpdate).forEach(
+      (key) => fieldsToUpdate[key] === undefined && delete fieldsToUpdate[key]
+    );
+
+    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error updating profile',
+    });
+  }
+};
+
+// @desc    Forgot Password - Generate Reset Token
+// @route   POST /api/auth/forgotpassword
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an email address',
+      });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'There is no account associated with this email address',
+      });
+    }
+
+    // Get reset token
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset token generated successfully',
+      resetToken, // Returned for UI workflow / reset link
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error processing forgot password request',
+    });
+  }
+};
+
+// @desc    Reset Password using Token
+// @route   PUT /api/auth/resetpassword/:resettoken
+// @access  Public
+exports.resetPassword = async (req, res) => {
+  try {
+    // Get hashed token
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(req.params.resettoken)
+      .digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired password reset token',
+      });
+    }
+
+    if (!req.body.password || req.body.password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a new password (min 6 characters)',
+      });
+    }
+
+    // Set new password
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    sendTokenResponse(user, 200, res, 'Password reset successful');
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error resetting password',
+    });
+  }
+};
