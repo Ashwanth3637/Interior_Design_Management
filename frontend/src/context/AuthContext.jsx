@@ -5,7 +5,7 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => {
     try {
-      const storedToken = localStorage.getItem('token');
+      const storedToken = sessionStorage.getItem('token') || localStorage.getItem('token');
       return storedToken && storedToken !== 'undefined' && storedToken !== 'null' ? storedToken : null;
     } catch (e) {
       return null;
@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
 
   const [user, setUser] = useState(() => {
     try {
-      const storedUser = localStorage.getItem('user');
+      const storedUser = sessionStorage.getItem('user') || localStorage.getItem('user');
       return storedUser && storedUser !== 'undefined' && storedUser !== 'null' ? JSON.parse(storedUser) : null;
     } catch (e) {
       return null;
@@ -25,23 +25,23 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     try {
-      const storedToken = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
+      const storedToken = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const storedUser = sessionStorage.getItem('user') || localStorage.getItem('user');
 
       if (storedToken && storedUser && storedToken !== 'undefined' && storedUser !== 'undefined') {
         const parsedUser = JSON.parse(storedUser);
         setToken(storedToken);
         setUser(parsedUser);
       } else {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         setToken(null);
         setUser(null);
       }
     } catch (e) {
       console.error('Failed to parse user session stored locally', e);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       setToken(null);
       setUser(null);
     } finally {
@@ -64,6 +64,8 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Login failed');
       }
 
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
@@ -91,6 +93,8 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Registration failed');
       }
 
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
@@ -105,8 +109,8 @@ export const AuthProvider = ({ children }) => {
 
   // Logout handler
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     setToken(null);
     setUser(null);
   };

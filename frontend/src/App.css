@@ -10,6 +10,61 @@
   --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
 }
 
+/* Landing Page Smooth Animations & Hover Styles */
+.hover-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.hover-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.hover-btn {
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-btn:hover {
+  transform: scale(1.03);
+}
+
+.img-zoom-container {
+  overflow: hidden;
+}
+.img-zoom {
+  transition: transform 0.4s ease;
+}
+.hover-card:hover .img-zoom {
+  transform: scale(1.06);
+}
+
+@keyframes pulseGlow {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.whatsapp-float {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background-color: #25D366;
+  color: white;
+  border-radius: 50px;
+  padding: 0.7rem 1.25rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.4);
+  text-decoration: none;
+  z-index: 999;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.whatsapp-float:hover {
+  transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.5);
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -527,3 +582,177 @@ body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Phase 2: Professional Executive Analytics KPI Grid & Cards Styling */
+.analytics-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 1200px) {
+  .analytics-kpi-grid {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+  .analytics-kpi-grid .kpi-card {
+    min-width: 200px;
+    flex: 1 0 auto;
+  }
+}
+
+.kpi-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+  border-color: #cbd5e1;
+}
+
+/* Left border accent line for corporate elegance */
+.kpi-card-blue { border-left: 4px solid #2563eb; }
+.kpi-card-indigo { border-left: 4px solid #475569; }
+.kpi-card-amber { border-left: 4px solid #d97706; }
+.kpi-card-emerald { border-left: 4px solid #059669; }
+.kpi-card-purple { border-left: 4px solid #4f46e5; }
+
+.kpi-icon-box {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+/* Cohesive, professional icon styling */
+.bg-blue-light { background: #eff6ff; border: 1px solid #dbeafe; }
+.text-blue { color: #1d4ed8; }
+
+.bg-indigo-light { background: #f8fafc; border: 1px solid #e2e8f0; }
+.text-indigo { color: #334155; }
+
+.bg-amber-light { background: #fffbeb; border: 1px solid #fef3c7; }
+.text-amber { color: #b45309; }
+
+.bg-emerald-light { background: #f0fdf4; border: 1px solid #dcfce7; }
+.text-emerald { color: #047857; }
+
+.bg-purple-light { background: #eef2ff; border: 1px solid #e0e7ff; }
+.text-purple { color: #3730a3; }
+
+.kpi-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.kpi-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.kpi-number {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 0.2rem 0;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.text-purple-heading {
+  color: #0f172a; /* Consistent professional dark slate for numbers */
+}
+
+.kpi-footer-tag {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   Commercial SaaS Design System - Enterprise Cards, Buttons, Icons & Hover Animations
+   ========================================================================== */
+.saas-card {
+  background: #f8fafc;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
+  padding: 30px;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.saas-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+}
+
+.saas-card-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0 0 0.6rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.saas-card-desc {
+  font-size: 0.925rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0 0 24px 0;
+}
+
+.saas-btn {
+  width: 100%;
+  height: 48px;
+  background: #2563EB;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 12px;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.saas-btn:hover {
+  background: #1D4ED8;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
+}
+
+
+

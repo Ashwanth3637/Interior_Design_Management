@@ -58,6 +58,9 @@ const EmployeeManagement = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+
+  const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' };
+  const labelStyle = { display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' };
   const [formData, setFormData] = useState({
     employeeId: '',
     fullName: '',
@@ -73,10 +76,12 @@ const EmployeeManagement = () => {
     address: ''
   });
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (isInitial = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (isInitial) {
+        setLoading(true);
+        setError('');
+      }
       const queryParams = new URLSearchParams({
         page,
         limit: 8,
@@ -105,18 +110,22 @@ const EmployeeManagement = () => {
           window.location.href = '/login';
           return;
         }
-        setError(data.message || 'Failed to fetch employees');
+        if (isInitial) setError(data.message || 'Failed to fetch employees');
       }
     } catch (err) {
-      setError('Server error connecting to employees endpoint');
+      if (isInitial) setError('Server error connecting to employees endpoint');
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEmployees();
+    fetchEmployees(true);
     window.scrollTo({ top: 0, behavior: 'instant' });
+    const interval = setInterval(() => {
+      fetchEmployees(false);
+    }, 4000);
+    return () => clearInterval(interval);
   }, [page, search, department, role, status]);
 
   useEffect(() => {
@@ -127,6 +136,16 @@ const EmployeeManagement = () => {
       return () => clearTimeout(timer);
     }
   }, [successMsg]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -241,8 +260,8 @@ const EmployeeManagement = () => {
 
   return (
     <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '2rem 3rem', fontFamily: "'Inter', sans-serif" }}>
-      {/* Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      {/* Header Bar with Module Banner Image */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', backgroundColor: '#ffffff', padding: '1.5rem 2rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
         <div>
           <Link to="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>
             <ArrowLeft size={16} /> Back to Dashboard
@@ -254,26 +273,34 @@ const EmployeeManagement = () => {
             Manage staff profiles, department assignments, role access, and salaries.
           </p>
         </div>
-        <button
-          onClick={openAddModal}
-          style={{
-            backgroundColor: '#2563eb',
-            color: '#ffffff',
-            border: 'none',
-            padding: '0.75rem 1.5rem',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontWeight: '600',
-            fontSize: '0.95rem',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          <UserPlus size={18} /> Add New Employee
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <img 
+            src="/team_collaboration_1786024297074.png" 
+            alt="Employee Staff Team" 
+            style={{ width: '130px', height: '80px', objectFit: 'cover', borderRadius: '12px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }} 
+          />
+          <button
+            onClick={openAddModal}
+            style={{
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontWeight: '600',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <UserPlus size={18} /> Add New Employee
+          </button>
+        </div>
       </div>
 
       {/* Notifications */}
@@ -357,10 +384,10 @@ const EmployeeManagement = () => {
           <thead style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em', color: '#475569', fontWeight: '700' }}>
             <tr>
               <th style={{ padding: '1rem 1.25rem' }}>Employee ID</th>
-              <th style={{ padding: '1rem 1.25rem' }}>Name & Email</th>
+              <th style={{ padding: '1rem 1.25rem' }}>Employee</th>
               <th style={{ padding: '1rem 1.25rem' }}>Department / Role</th>
               <th style={{ padding: '1rem 1.25rem' }}>Phone</th>
-              <th style={{ padding: '1rem 1.25rem' }}>Salary</th>
+              <th style={{ padding: '1rem 1.25rem' }}>Monthly Salary</th>
               <th style={{ padding: '1rem 1.25rem' }}>Status</th>
               <th style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>Actions</th>
             </tr>
@@ -459,7 +486,7 @@ const EmployeeManagement = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
               <div>
                 <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.35rem', fontWeight: '700' }}>{editingId ? 'Edit Employee Details' : 'Add New Employee'}</h3>
-                <p style={{ margin: '0.25rem 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>Fill in the information to update the employee registry.</p>
+                <p style={{ margin: '0.25rem 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>Enter employee details below.</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '0.4rem', borderRadius: '50%' }}>
                 <X size={20} />
@@ -480,61 +507,28 @@ const EmployeeManagement = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Full Name *</label>
-                <input
-                  type="text"
-                  name="fullName"
-                  required
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Full Name *</label>
+                <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Email Address *</label>
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Email Address *</label>
+                <input type="email" name="email" required value={formData.email} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Password {editingId && '(Leave blank to keep current)'}</label>
-                <input
-                  type="password"
-                  name="password"
-                  required={!editingId}
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Password {editingId && '(Leave blank to keep current)'}</label>
+                <input type="password" name="password" required={!editingId} value={formData.password} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Phone Number *</label>
-                <input
-                  type="text"
-                  name="phone"
-                  required
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Phone Number *</label>
+                <input type="text" name="phone" required value={formData.phone} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Department *</label>
-                <select
-                  name="department"
-                  value={formData.department}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Department *</label>
+                <select name="department" value={formData.department} onChange={handleInputChange} style={inputStyle}>
                   <option value="Design">Design</option>
                   <option value="Projects">Projects</option>
                   <option value="Sales">Sales</option>
@@ -545,13 +539,8 @@ const EmployeeManagement = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Role *</label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Role *</label>
+                <select name="role" value={formData.role} onChange={handleInputChange} style={inputStyle}>
                   <option value="INTERIOR_DESIGNER">Interior Designer</option>
                   <option value="PROJECT_MANAGER">Project Manager</option>
                   <option value="SITE_ENGINEER">Site Engineer</option>
@@ -562,24 +551,13 @@ const EmployeeManagement = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Monthly Salary (₹)</label>
-                <input
-                  type="number"
-                  name="salary"
-                  value={formData.salary}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Monthly Salary (₹)</label>
+                <input type="number" name="salary" value={formData.salary} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Status</label>
+                <select name="status" value={formData.status} onChange={handleInputChange} style={inputStyle}>
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                   <option value="On Leave">On Leave</option>

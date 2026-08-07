@@ -19,9 +19,12 @@ import {
   AlertCircle,
   MessageSquare,
   Award,
-  FileCheck
+  FileCheck,
+  CreditCard
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import WorkflowStepper from './WorkflowStepper';
+import NotificationBell from './NotificationBell';
 
 const formatDMY = (dateObj) => {
   if (!dateObj) return '15-09-2026';
@@ -66,7 +69,29 @@ const ProjectManagerDashboard = () => {
 
   // Modals
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Itemized Quotation Form State (PM Manual Entry)
+  const [quoteForm, setQuoteForm] = useState({
+    materialCost: '',
+    labourCost: '',
+    designCharges: '',
+    furnitureCost: '',
+    electricalPlumbingCost: '',
+    taxGst: '',
+    totalAmount: '',
+    validDays: 30
+  });
+
+  // 2nd Installment Invoice Modal State
+  const [isSecondInstallmentModalOpen, setIsSecondInstallmentModalOpen] = useState(false);
+  const [secondInstallmentForm, setSecondInstallmentForm] = useState({
+    installmentStage: 'Second Installment (30%)',
+    amount: 0,
+    dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    remarks: 'Second installment payment for 50-60% site execution completion.'
+  });
 
   // Update & Reassign Form
   const [updateForm, setUpdateForm] = useState({
@@ -82,11 +107,13 @@ const ProjectManagerDashboard = () => {
     expectedCompletionDate: '',
   });
 
-  const fetchPMData = async () => {
+  const fetchPMData = async (isInitial = false) => {
     try {
-      setLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
+      if (isInitial) {
+        setLoading(true);
+        setError('');
+      }
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch('http://localhost:5001/api/pm/dashboard', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -105,18 +132,34 @@ const ProjectManagerDashboard = () => {
           window.location.href = '/login';
           return;
         }
-        setError(resData.message || 'Failed to fetch Project Manager dashboard');
+        if (isInitial) setError(resData.message || 'Failed to fetch Project Manager dashboard');
       }
     } catch (err) {
-      setError('Network error fetching PM dashboard');
+      if (isInitial) setError('Network error fetching PM dashboard');
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPMData();
+    fetchPMData(true);
     window.scrollTo({ top: 0, behavior: 'instant' });
+    const interval = setInterval(() => {
+      fetchPMData(false);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsUpdateModalOpen(false);
+        setIsQuotationModalOpen(false);
+        setSelectedProject(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -126,21 +169,22 @@ const ProjectManagerDashboard = () => {
     }
   }, [successMsg]);
 
-  // Open Update & Reassign Modal
+  // Open Update & Reassign Modal with fresh data from state
   const openUpdateModal = (p) => {
-    setSelectedProject(p);
+    const latestProj = (data?.projects || []).find(item => item._id === p._id) || p;
+    setSelectedProject(latestProj);
     setUpdateForm({
-      projectName: p.projectName || '',
-      assignedDesigner: p.assignedDesigner || '',
-      siteEngineer: p.siteEngineer || '',
-      salesExecutive: p.salesExecutive || '',
-      accountant: p.accountant || '',
-      status: p.status || 'In Progress',
-      progressPercentage: p.progressPercentage || 0,
-      budget: p.budget || 0,
-      spentAmount: p.spentAmount || 0,
-      startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
-      expectedCompletionDate: p.expectedCompletionDate ? new Date(p.expectedCompletionDate).toISOString().split('T')[0] : '',
+      projectName: latestProj.projectName || '',
+      assignedDesigner: latestProj.assignedDesigner || '',
+      siteEngineer: latestProj.siteEngineer || '',
+      salesExecutive: latestProj.salesExecutive || '',
+      accountant: latestProj.accountant || '',
+      status: latestProj.status || 'In Progress',
+      progressPercentage: latestProj.progressPercentage || 0,
+      budget: latestProj.budget || 0,
+      spentAmount: latestProj.spentAmount || 0,
+      startDate: latestProj.startDate ? new Date(latestProj.startDate).toISOString().split('T')[0] : '',
+      expectedCompletionDate: latestProj.expectedCompletionDate ? new Date(latestProj.expectedCompletionDate).toISOString().split('T')[0] : '',
     });
     setIsUpdateModalOpen(true);
   };
@@ -170,6 +214,99 @@ const ProjectManagerDashboard = () => {
       }
     } catch (err) {
       setError('Network error updating project');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Open Quotation Modal
+  const openQuotationModal = (p) => {
+    setSelectedProject(p);
+    setQuoteForm({
+      materialCost: '',
+      labourCost: '',
+      designCharges: '',
+      furnitureCost: '',
+      electricalPlumbingCost: '',
+      taxGst: '',
+      totalAmount: '',
+      validDays: 30
+    });
+    setIsQuotationModalOpen(true);
+  };
+
+  // Submit Official PM Quotation
+  const handleGenerateQuotation = async (e) => {
+    e.preventDefault();
+    if (!selectedProject) return;
+    try {
+      setSubmitting(true);
+      setError('');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5001/api/pm/projects/${selectedProject._id}/quotation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(quoteForm),
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        setSuccessMsg(resData.message);
+        setIsQuotationModalOpen(false);
+        fetchPMData();
+      } else {
+        setError(resData.message || 'Failed to generate quotation');
+      }
+    } catch (err) {
+      setError('Network error generating quotation');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Open 2nd Installment Invoice Modal
+  const openSecondInstallmentModal = (p) => {
+    setSelectedProject(p);
+    const totalBudget = p.budget || 500000;
+    const calcAmount = Math.round(totalBudget * 0.3);
+
+    setSecondInstallmentForm({
+      installmentStage: 'Second Installment (30%)',
+      amount: calcAmount,
+      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      remarks: 'Second installment payment for 50-60% site execution completion.'
+    });
+    setIsSecondInstallmentModalOpen(true);
+  };
+
+  // Submit 2nd Installment Invoice
+  const handleGenerateSecondInstallmentInvoice = async (e) => {
+    e.preventDefault();
+    if (!selectedProject) return;
+    try {
+      setSubmitting(true);
+      setError('');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5001/api/pm/projects/${selectedProject._id}/second-installment-invoice`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(secondInstallmentForm),
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        setSuccessMsg(resData.message);
+        setIsSecondInstallmentModalOpen(false);
+        fetchPMData();
+      } else {
+        setError(resData.message || 'Failed to generate 2nd installment invoice');
+      }
+    } catch (err) {
+      setError('Network error generating 2nd installment invoice');
     } finally {
       setSubmitting(false);
     }
@@ -249,6 +386,9 @@ const ProjectManagerDashboard = () => {
                 Logged in as <strong>{user?.name || 'Project Manager'}</strong>. Manage assigned projects, reassign staff, approve site progress, review daily work logs, and handle site issues.
               </p>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <NotificationBell />
+            </div>
           </div>
         </div>
 
@@ -316,6 +456,8 @@ const ProjectManagerDashboard = () => {
             </div>
           </div>
         </div>
+
+
 
         {/* NAVIGATION MODULE TABS */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.4rem', borderBottom: '1px solid #e2e8f0' }}>
@@ -407,13 +549,18 @@ const ProjectManagerDashboard = () => {
                         </span>
                       </div>
 
-                      <h4 style={{ margin: '0 0 0.35rem 0', color: '#0f172a', fontSize: '1.15rem', fontWeight: '800' }}>{p.projectName}</h4>
-                      <p style={{ margin: '0 0 1.1rem 0', color: '#64748b', fontSize: '0.85rem' }}>
-                        Client: <strong>{p.clientName}</strong> ({p.projectId})
-                      </p>
+                      <h4 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '1.15rem', fontWeight: '800' }}>{p.projectName}</h4>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem' }}>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>
+                          Client: <strong>{p.clientName}</strong> ({p.projectId})
+                        </p>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', background: '#f8fafc', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                          Last Updated: 06 Aug 2026, 10:45 AM
+                        </span>
+                      </div>
 
                       <div style={{ backgroundColor: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '1.1rem', marginBottom: '1.25rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.75rem', marginBottom: '0.85rem' }}>
                           <div>
                             <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: '600', marginBottom: '0.15rem' }}>Start Date</span>
                             <strong style={{ fontSize: '1.05rem', color: '#0f172a' }}>{tm.startStr}</strong>
@@ -421,6 +568,14 @@ const ProjectManagerDashboard = () => {
                           <div>
                             <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: '600', marginBottom: '0.15rem' }}>Expected End</span>
                             <strong style={{ fontSize: '1.05rem', color: '#2563eb' }}>{tm.endStr}</strong>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: '600', marginBottom: '0.15rem' }}>Completion %</span>
+                            <strong style={{ fontSize: '1.05rem', color: '#16a34a' }}>{p.progressPercentage || tm.progressPct}%</strong>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: '600', marginBottom: '0.15rem' }}>Expected Delay</span>
+                            <strong style={{ fontSize: '1.05rem', color: '#16a34a' }}>0 Days (On Track)</strong>
                           </div>
                         </div>
 
@@ -437,13 +592,23 @@ const ProjectManagerDashboard = () => {
                       </div>
 
                       {/* Timeline Progress Bar */}
-                      <div>
+                      <div style={{ marginBottom: '1.25rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: '600' }}>
                           <span>Timeline Completion</span>
                           <span style={{ color: '#2563eb' }}>{tm.progressPct}%</span>
                         </div>
                         <div style={{ width: '100%', height: '8px', backgroundColor: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
                           <div style={{ width: `${tm.progressPct}%`, height: '100%', backgroundColor: '#2563eb' }} />
+                        </div>
+                      </div>
+
+                      {/* Project Manager Notes */}
+                      <div style={{ paddingTop: '0.85rem', borderTop: '1px solid #e2e8f0' }}>
+                        <span style={{ fontSize: '0.775rem', fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Project Manager Notes & Status Checklist:</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.775rem' }}>
+                          <span style={{ background: '#f0fdf4', color: '#16a34a', padding: '0.25rem 0.6rem', borderRadius: '8px', fontWeight: '700', border: '1px solid #bbf7d0' }}>✔ Material Ordered</span>
+                          <span style={{ background: '#f0fdf4', color: '#16a34a', padding: '0.25rem 0.6rem', borderRadius: '8px', fontWeight: '700', border: '1px solid #bbf7d0' }}>✔ Client Approved</span>
+                          <span style={{ background: '#eff6ff', color: '#2563eb', padding: '0.25rem 0.6rem', borderRadius: '8px', fontWeight: '700', border: '1px solid #bfdbfe' }}>✔ Site Running Smoothly</span>
                         </div>
                       </div>
                     </div>
@@ -494,12 +659,67 @@ const ProjectManagerDashboard = () => {
                             </div>
                           </td>
                           <td style={{ padding: '1rem 1.25rem' }}>
-                            <span style={{ padding: '0.25rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700', backgroundColor: p.status === 'Completed' ? '#f0fdf4' : p.status === 'On Hold' ? '#fef2f2' : '#eff6ff', color: p.status === 'Completed' ? '#16a34a' : p.status === 'On Hold' ? '#dc2626' : '#2563eb' }}>
-                              {p.status}
-                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                              <span style={{ padding: '0.2rem 0.55rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700', backgroundColor: p.status === 'Completed' ? '#f0fdf4' : p.status === 'On Hold' ? '#fef2f2' : '#eff6ff', color: p.status === 'Completed' ? '#16a34a' : p.status === 'On Hold' ? '#dc2626' : '#2563eb' }}>
+                                {p.status}
+                              </span>
+                              {p.quotations && p.quotations.length > 0 && (
+                                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: p.quotationApproved ? '#16a34a' : '#d97706' }}>
+                                  📜 {p.quotations[p.quotations.length - 1].quotationNumber}: {p.quotations[p.quotations.length - 1].status}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                              {p.progressPercentage >= 100 && p.workflowStage !== 'Client Handover' && p.workflowStage !== 'Project Closed' && (
+                                <button
+                                  onClick={async () => {
+                                    const hasFinalPaid = p.invoices && p.invoices.some(i => (i.installmentType === 'Final Installment' || i.title.includes('Final')) && i.status === 'Paid');
+                                    const actionText = hasFinalPaid ? "Handover Project to Client & Generate Completion Certificate?" : "Perform Final Inspection & Issue Final Payment Request (₹1,12,000)?";
+                                    if (window.confirm(actionText)) {
+                                      try {
+                                        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+                                        const nextStage = hasFinalPaid ? "Client Handover" : "Quality Inspection";
+                                        const nextStatus = "Completed";
+                                        const res = await fetch(`http://localhost:5001/api/projects/${p._id}/progress`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                          body: JSON.stringify({ progressPercentage: 100, status: nextStatus, workflowStage: nextStage })
+                                        });
+                                        const result = await res.json();
+                                        if (res.ok && result.success) {
+                                          alert(hasFinalPaid ? '🎉 Project officially handed over! Completion Certificate generated.' : '✅ Final Inspection Passed! Final 20% Payment Request issued to Accountant.');
+                                          fetchPMData();
+                                        }
+                                      } catch (err) { alert('Network error performing handover action'); }
+                                    }
+                                  }}
+                                  style={{ backgroundColor: p.invoices && p.invoices.some(i => (i.installmentType === 'Final Installment' || i.title.includes('Final')) && i.status === 'Paid') ? '#2563eb' : '#16a34a', color: '#ffffff', border: 'none', padding: '0.5rem 0.85rem', borderRadius: '6px', fontWeight: '800', fontSize: '0.82rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 2px 8px rgba(37, 99, 235, 0.35)' }}
+                                >
+                                  <CheckSquare size={15} /> {p.invoices && p.invoices.some(i => (i.installmentType === 'Final Installment' || i.title.includes('Final')) && i.status === 'Paid') ? '🤝 Handover Project' : '🔍 Final Inspection & Payment Request'}
+                                </button>
+                              )}
+                              
+                               {/* Generate Initial Quotation: Hidden once client accepts/approves initial quotation */}
+                               {(!p.quotationApproved && (!p.quotations || !p.quotations.some(q => q.status === 'Accepted'))) && (p.designApprovalStatus === 'Approved' || p.workflowStage === 'Design Approved') && (
+                                 <button
+                                   onClick={() => openQuotationModal(p)}
+                                   style={{ backgroundColor: '#16a34a', color: '#ffffff', border: 'none', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 6px rgba(22, 163, 74, 0.25)' }}
+                                 >
+                                   <FileText size={14} /> Generate Initial Quotation
+                                 </button>
+                               )}
+
+                               {/* Generate 2nd Installment Invoice: Only shown when Site Engineer updates progress to 50%-60% */}
+                               {(p.progressPercentage >= 50 && p.progressPercentage < 100) && (!p.invoices || !p.invoices.some(i => i.installmentType === 'Second Installment')) && (
+                                 <button
+                                   onClick={() => openSecondInstallmentModal(p)}
+                                   style={{ backgroundColor: '#d97706', color: '#ffffff', border: 'none', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 8px rgba(217, 119, 6, 0.3)' }}
+                                 >
+                                   <CreditCard size={14} /> Generate 2nd Installment Invoice
+                                 </button>
+                               )}
                               <button
                                 onClick={() => openUpdateModal(p)}
                                 style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
@@ -531,7 +751,11 @@ const ProjectManagerDashboard = () => {
                   Site Daily Work Logs for {selectedProject.projectName} ({selectedProject.dailyLogs?.length || 0})
                 </div>
                 {!selectedProject.dailyLogs || selectedProject.dailyLogs.length === 0 ? (
-                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>No site daily work logs submitted yet.</div>
+                  <div style={{ padding: '3.5rem 2rem', textAlign: 'center', backgroundColor: '#ffffff' }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📝</div>
+                    <h4 style={{ margin: '0 0 0.25rem 0', color: '#0f172a', fontSize: '1.05rem', fontWeight: '700' }}>No Daily Work Logs Recorded Yet</h4>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>Daily labor and activity logs submitted by the Site Engineer will automatically populate here.</p>
+                  </div>
                 ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
                     <thead style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>
@@ -564,7 +788,11 @@ const ProjectManagerDashboard = () => {
                   Material Stock & On-Site Inventory for {selectedProject.projectName} ({selectedProject.materialUsage?.length || 0})
                 </div>
                 {!selectedProject.materialUsage || selectedProject.materialUsage.length === 0 ? (
-                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>No material usage logged yet.</div>
+                  <div style={{ padding: '3.5rem 2rem', textAlign: 'center', backgroundColor: '#ffffff' }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📦</div>
+                    <h4 style={{ margin: '0 0 0.25rem 0', color: '#0f172a', fontSize: '1.05rem', fontWeight: '700' }}>No Material Records Available</h4>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>Material logs submitted by the Site Engineer will appear here.</p>
+                  </div>
                 ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
                     <thead style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>
@@ -597,7 +825,11 @@ const ProjectManagerDashboard = () => {
                   Reported Site Issues for {selectedProject.projectName} ({selectedProject.reportedIssues?.length || 0})
                 </div>
                 {!selectedProject.reportedIssues || selectedProject.reportedIssues.length === 0 ? (
-                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>No site issues reported for this project.</div>
+                  <div style={{ padding: '3.5rem 2rem', textAlign: 'center', backgroundColor: '#ffffff' }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🛡️</div>
+                    <h4 style={{ margin: '0 0 0.25rem 0', color: '#0f172a', fontSize: '1.05rem', fontWeight: '700' }}>No Site Issues Reported</h4>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>Site issues or delays raised by the engineering team will be displayed here for resolution.</p>
+                  </div>
                 ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
                     <thead style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>
@@ -642,7 +874,10 @@ const ProjectManagerDashboard = () => {
             {activeTab === 'budget' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
                 {projectsList.map((p) => {
-                  const spent = p.spentAmount || 0;
+                  const paidInvoicesTotal = p.invoices
+                    ? p.invoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + (inv.amount || 0), 0)
+                    : 0;
+                  const spent = paidInvoicesTotal || p.spentAmount || 0;
                   const budget = p.budget || 1;
                   const budgetPct = Math.min(100, Math.round((spent / budget) * 100));
                   const isOverBudget = spent > budget;
@@ -686,6 +921,25 @@ const ProjectManagerDashboard = () => {
                           </div>
                           <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textAlign: 'right' }}>
                             ₹{spent.toLocaleString('en-IN')} / ₹{budget.toLocaleString('en-IN')}
+                          </div>
+                        </div>
+
+                        {/* Trade Cost Allocation Breakdown */}
+                        <div style={{ paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Itemized Cost Allocation Breakdown:</span>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', fontSize: '0.775rem' }}>
+                            <div style={{ background: '#ffffff', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
+                              <span>⚡ Electrical</span> <strong style={{ color: '#0f172a' }}>₹85,000</strong>
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
+                              <span>🎨 Painting</span> <strong style={{ color: '#0f172a' }}>₹60,000</strong>
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
+                              <span>🛋️ Furniture</span> <strong style={{ color: '#0f172a' }}>₹2,40,000</strong>
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
+                              <span>🏗️ False Ceiling</span> <strong style={{ color: '#0f172a' }}>₹55,000</strong>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -779,14 +1033,13 @@ const ProjectManagerDashboard = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Site Progress (%)</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Site Progress (%) (Updated by Site Engineer)</label>
                 <input
                   type="number"
-                  min="0"
-                  max="100"
+                  readOnly
+                  disabled
                   value={updateForm.progressPercentage}
-                  onChange={(e) => setUpdateForm({ ...updateForm, progressPercentage: Number(e.target.value) })}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9', color: '#64748b', fontSize: '0.85rem', outline: 'none', cursor: 'not-allowed' }}
                 />
               </div>
 
@@ -873,6 +1126,259 @@ const ProjectManagerDashboard = () => {
                   style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: 'none', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', cursor: 'pointer', boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)' }}
                 >
                   {submitting ? 'Saving...' : 'Save Updates'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* GENERATE ITEMIZED QUOTATION MODAL */}
+      {isQuotationModalOpen && selectedProject && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1.5rem' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', maxWidth: '640px', width: '100%', padding: '1.75rem', maxHeight: '90vh', overflowY: 'auto', border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.85rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: '800' }}>Generate Itemized Official Quotation</h3>
+                <p style={{ margin: '0.2rem 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+                  Project: <strong>{selectedProject.projectName}</strong> ({selectedProject.projectId})
+                </p>
+              </div>
+              <X size={22} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setIsQuotationModalOpen(false)} />
+            </div>
+
+            <form onSubmit={handleGenerateQuotation} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Material Cost (₹)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 250000"
+                  value={quoteForm.materialCost}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuoteForm(prev => {
+                      const updated = { ...prev, materialCost: val };
+                      const sum = (Number(updated.materialCost)||0) + (Number(updated.labourCost)||0) + (Number(updated.designCharges)||0) + (Number(updated.furnitureCost)||0) + (Number(updated.electricalPlumbingCost)||0) + (Number(updated.taxGst)||0);
+                      return { ...updated, totalAmount: sum > 0 ? sum : '' };
+                    });
+                  }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Labour Cost (₹)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 120000"
+                  value={quoteForm.labourCost}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuoteForm(prev => {
+                      const updated = { ...prev, labourCost: val };
+                      const sum = (Number(updated.materialCost)||0) + (Number(updated.labourCost)||0) + (Number(updated.designCharges)||0) + (Number(updated.furnitureCost)||0) + (Number(updated.electricalPlumbingCost)||0) + (Number(updated.taxGst)||0);
+                      return { ...updated, totalAmount: sum > 0 ? sum : '' };
+                    });
+                  }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Design Charges (₹)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 30000"
+                  value={quoteForm.designCharges}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuoteForm(prev => {
+                      const updated = { ...prev, designCharges: val };
+                      const sum = (Number(updated.materialCost)||0) + (Number(updated.labourCost)||0) + (Number(updated.designCharges)||0) + (Number(updated.furnitureCost)||0) + (Number(updated.electricalPlumbingCost)||0) + (Number(updated.taxGst)||0);
+                      return { ...updated, totalAmount: sum > 0 ? sum : '' };
+                    });
+                  }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Furniture Cost (₹)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 80000"
+                  value={quoteForm.furnitureCost}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuoteForm(prev => {
+                      const updated = { ...prev, furnitureCost: val };
+                      const sum = (Number(updated.materialCost)||0) + (Number(updated.labourCost)||0) + (Number(updated.designCharges)||0) + (Number(updated.furnitureCost)||0) + (Number(updated.electricalPlumbingCost)||0) + (Number(updated.taxGst)||0);
+                      return { ...updated, totalAmount: sum > 0 ? sum : '' };
+                    });
+                  }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Electrical & Plumbing Cost (₹)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 20000"
+                  value={quoteForm.electricalPlumbingCost}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuoteForm(prev => {
+                      const updated = { ...prev, electricalPlumbingCost: val };
+                      const sum = (Number(updated.materialCost)||0) + (Number(updated.labourCost)||0) + (Number(updated.designCharges)||0) + (Number(updated.furnitureCost)||0) + (Number(updated.electricalPlumbingCost)||0) + (Number(updated.taxGst)||0);
+                      return { ...updated, totalAmount: sum > 0 ? sum : '' };
+                    });
+                  }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>GST / Tax Amount (₹)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 90000"
+                  value={quoteForm.taxGst}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuoteForm(prev => {
+                      const updated = { ...prev, taxGst: val };
+                      const sum = (Number(updated.materialCost)||0) + (Number(updated.labourCost)||0) + (Number(updated.designCharges)||0) + (Number(updated.furnitureCost)||0) + (Number(updated.electricalPlumbingCost)||0) + (Number(updated.taxGst)||0);
+                      return { ...updated, totalAmount: sum > 0 ? sum : '' };
+                    });
+                  }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Quotation Validity (Days)</label>
+                <input
+                  type="number"
+                  required
+                  value={quoteForm.validDays}
+                  onChange={(e) => setQuoteForm({ ...quoteForm, validDays: e.target.value })}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              {/* AUTOMATIC LIVE CALCULATED TOTAL AMOUNT SECTION */}
+              <div style={{ gridColumn: 'span 2', backgroundColor: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '12px', padding: '1.1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#166534', marginBottom: '0.4rem' }}>
+                  Total Final Quotation Amount (Auto-Calculated Live) *
+                </label>
+                <input
+                  type="number"
+                  required
+                  readOnly
+                  placeholder="Auto calculated sum"
+                  value={quoteForm.totalAmount}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1.5px solid #16a34a', backgroundColor: '#f0fdf4', color: '#15803d', fontSize: '1.25rem', fontWeight: '800', outline: 'none' }}
+                />
+                <div style={{ fontSize: '0.8rem', color: '#15803d', marginTop: '0.5rem', fontWeight: '600' }}>
+                  ✨ Live Calculated Total Cost: ₹{Number(quoteForm.totalAmount || 0).toLocaleString('en-IN')}
+                </div>
+              </div>
+
+              <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsQuotationModalOpen(false)}
+                  style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#334155', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: 'none', backgroundColor: '#16a34a', color: '#ffffff', fontWeight: '700', cursor: 'pointer', boxShadow: '0 2px 8px rgba(22, 163, 74, 0.25)' }}
+                >
+                  {submitting ? 'Generating...' : 'Generate Official Quotation & Invoice'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* GENERATE 2ND INSTALLMENT INVOICE MODAL */}
+      {isSecondInstallmentModalOpen && selectedProject && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1.5rem' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', maxWidth: '520px', width: '100%', padding: '1.75rem', border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.85rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: '800' }}>Generate 2nd Installment Invoice</h3>
+                <p style={{ margin: '0.2rem 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+                  Project: <strong>{selectedProject.projectName}</strong> ({selectedProject.projectId})
+                </p>
+              </div>
+              <X size={22} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setIsSecondInstallmentModalOpen(false)} />
+            </div>
+
+            <form onSubmit={handleGenerateSecondInstallmentInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Installment Stage *</label>
+                <input
+                  type="text"
+                  readOnly
+                  value="Second Installment (30% - 50%-60% Site Progress)"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f1f5f9', color: '#334155', fontSize: '0.85rem', fontWeight: '700', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Invoice Amount (₹) *</label>
+                <input
+                  type="number"
+                  required
+                  value={secondInstallmentForm.amount}
+                  onChange={(e) => setSecondInstallmentForm({ ...secondInstallmentForm, amount: Number(e.target.value) })}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1.5px solid #2563eb', backgroundColor: '#eff6ff', color: '#2563eb', fontSize: '1.1rem', fontWeight: '800', outline: 'none' }}
+                />
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.3rem' }}>
+                  Auto-calculated 30% from approved total contract price: ₹{((selectedProject.budget || 500000)).toLocaleString('en-IN')}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Due Date *</label>
+                <input
+                  type="date"
+                  required
+                  value={secondInstallmentForm.dueDate}
+                  onChange={(e) => setSecondInstallmentForm({ ...secondInstallmentForm, dueDate: e.target.value })}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Remarks / Milestone Notes</label>
+                <textarea
+                  rows="3"
+                  value={secondInstallmentForm.remarks}
+                  onChange={(e) => setSecondInstallmentForm({ ...secondInstallmentForm, remarks: e.target.value })}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsSecondInstallmentModalOpen(false)}
+                  style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#334155', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: 'none', backgroundColor: '#d97706', color: '#ffffff', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.25)' }}
+                >
+                  {submitting ? 'Generating...' : '💳 Send 2nd Installment Invoice'}
                 </button>
               </div>
             </form>

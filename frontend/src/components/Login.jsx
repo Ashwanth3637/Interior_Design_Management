@@ -22,7 +22,11 @@ const Login = () => {
     setSubmitting(false);
     if (res.success) {
       const role = res.user?.role || '';
-      if (['Designer', 'INTERIOR_DESIGNER', 'Interior Designer'].includes(role)) {
+      if (['Super Admin', 'SUPER_ADMIN'].includes(role)) {
+        navigate('/super-admin');
+      } else if (['Admin', 'ADMIN'].includes(role)) {
+        navigate('/admin');
+      } else if (['Designer', 'INTERIOR_DESIGNER', 'Interior Designer'].includes(role)) {
         navigate('/designer-studio');
       } else if (['Site Engineer', 'SITE_ENGINEER'].includes(role)) {
         navigate('/site-engineer');
@@ -45,6 +49,11 @@ const Login = () => {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <div style={{ marginBottom: '1rem' }}>
+          <Link to="/" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+            ← Back to Home
+          </Link>
+        </div>
         <div className="auth-header">
           <h1>Welcome Back</h1>
           <p>Interior Design Management Portal</p>
@@ -107,6 +116,22 @@ const Login = () => {
             )}
           </button>
         </form>
+
+        {/* Quick Demo Credentials Guide */}
+        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#64748b' }}>
+          <span style={{ fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '0.4rem' }}>💡 Quick Test Credentials:</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <div>
+              <strong>Super Admin:</strong> <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px', color: '#2563eb' }}>admin@company.com</code> / <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>Admin123!</code>
+            </div>
+            <div>
+              <strong>Accountant:</strong> <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px', color: '#2563eb' }}>accountant@company.com</code> / <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>Admin123!</code>
+            </div>
+            <div>
+              <strong>Client Portal:</strong> <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px', color: '#2563eb' }}>jai@gmail.com</code> / <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>Client123!</code>
+            </div>
+          </div>
+        </div>
 
         <div className="auth-footer">
           <p>

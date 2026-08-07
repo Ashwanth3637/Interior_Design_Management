@@ -42,6 +42,8 @@ const ClientManagement = () => {
   const [editingId, setEditingId] = useState(null);
   const [designersList, setDesignersList] = useState([]);
   const [engineersList, setEngineersList] = useState([]);
+  const [pmList, setPmList] = useState([]);
+  const [accountantsList, setAccountantsList] = useState([]);
   const [formData, setFormData] = useState({
     clientId: '',
     fullName: '',
@@ -55,18 +57,25 @@ const ClientManagement = () => {
     projectType: 'Residential',
     assignedDesigner: '',
     siteEngineer: '',
+    projectManager: '',
+    accountant: '',
     status: 'Active'
   });
+
+  const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' };
+  const labelStyle = { display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' };
 
   // View Details Modal State
   const [viewClientData, setViewClientData] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [loadingView, setLoadingView] = useState(false);
 
-  const fetchClients = async () => {
+  const fetchClients = async (isInitial = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (isInitial) {
+        setLoading(true);
+        setError('');
+      }
       const queryParams = new URLSearchParams({
         page,
         limit: 8,
@@ -94,10 +103,12 @@ const ClientManagement = () => {
           window.location.href = '/login';
           return;
         }
-        setError(data.message || 'Failed to fetch client records');
+        if (isInitial) setError(data.message || 'Failed to fetch client records');
       }
+    } catch (err) {
+      if (isInitial) setError('Network error fetching client records');
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
@@ -121,12 +132,26 @@ const ClientManagement = () => {
           ['SITE_ENGINEER', 'Site Engineer'].includes(e.role) || (e.department === 'Engineering' && e.role !== 'INTERIOR_DESIGNER')
         );
 
+        // Filter Project Managers strictly from Employee records
+        const pms = allEmployees.filter(e =>
+          ['PROJECT_MANAGER', 'Project Manager', 'PM'].includes(e.role) || e.department === 'Management' || e.department === 'Project Management'
+        );
+
+        // Filter Accountants strictly from Employee records
+        const accountants = allEmployees.filter(e =>
+          ['ACCOUNTANT', 'Accountant', 'Finance'].includes(e.role) || e.department === 'Accounts' || e.department === 'Finance'
+        );
+
         // Deduplicate by employee name
         const uniqueDesigners = Array.from(new Map(designers.map(item => [(item.name || item.fullName).trim(), item])).values());
         const uniqueEngineers = Array.from(new Map(engineers.map(item => [(item.name || item.fullName).trim(), item])).values());
+        const uniquePms = Array.from(new Map(pms.map(item => [(item.name || item.fullName).trim(), item])).values());
+        const uniqueAccountants = Array.from(new Map(accountants.map(item => [(item.name || item.fullName).trim(), item])).values());
 
         setDesignersList(uniqueDesigners);
         setEngineersList(uniqueEngineers);
+        setPmList(uniquePms.length > 0 ? uniquePms : allEmployees);
+        setAccountantsList(uniqueAccountants.length > 0 ? uniqueAccountants : allEmployees);
       }
     } catch (e) {
       console.error('Failed to fetch staff list', e);
@@ -134,9 +159,13 @@ const ClientManagement = () => {
   };
 
   useEffect(() => {
-    fetchClients();
+    fetchClients(true);
     fetchStaff();
     window.scrollTo({ top: 0, behavior: 'instant' });
+    const interval = setInterval(() => {
+      fetchClients(false);
+    }, 4000);
+    return () => clearInterval(interval);
   }, [page, search, status, city]);
 
   useEffect(() => {
@@ -147,6 +176,16 @@ const ClientManagement = () => {
       return () => clearTimeout(timer);
     }
   }, [successMsg]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -170,6 +209,8 @@ const ClientManagement = () => {
       projectType: 'Residential',
       assignedDesigner: '',
       siteEngineer: '',
+      projectManager: '',
+      accountant: '',
       status: 'Active'
     });
     setIsModalOpen(true);
@@ -192,6 +233,8 @@ const ClientManagement = () => {
       projectType: clt.projectType || 'Residential',
       assignedDesigner: '',
       siteEngineer: '',
+      projectManager: '',
+      accountant: '',
       status: clt.status || 'Active'
     });
     setIsModalOpen(true);
@@ -285,8 +328,8 @@ const ClientManagement = () => {
 
   return (
     <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '2rem 3rem', fontFamily: "'Inter', sans-serif" }}>
-      {/* Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      {/* Header Bar with Module Banner Image */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', backgroundColor: '#ffffff', padding: '1.5rem 2rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
         <div>
           <Link to="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>
             <ArrowLeft size={16} /> Back to Dashboard
@@ -298,25 +341,33 @@ const ClientManagement = () => {
             Manage client profiles, property locations, contact details, and assigned project milestones.
           </p>
         </div>
-        <button
-          onClick={openAddModal}
-          style={{
-            backgroundColor: '#2563eb',
-            color: '#ffffff',
-            border: 'none',
-            padding: '0.75rem 1.5rem',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontWeight: '600',
-            fontSize: '0.95rem',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
-          }}
-        >
-          <UserPlus size={18} /> Add New Client
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <img 
+            src="/client_meeting_1786024318597.png" 
+            alt="Client Consultation Meeting" 
+            style={{ width: '130px', height: '80px', objectFit: 'cover', borderRadius: '12px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }} 
+          />
+          <button
+            onClick={openAddModal}
+            style={{
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontWeight: '600',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+            }}
+          >
+            <UserPlus size={18} /> Add New Client
+          </button>
+        </div>
       </div>
 
       {/* Notifications */}
@@ -356,7 +407,7 @@ const ClientManagement = () => {
 
         <input
           type="text"
-          placeholder="Filter by city..."
+          placeholder="City"
           value={city}
           onChange={(e) => setCity(e.target.value)}
           style={{ flex: '1 1 150px', minWidth: '140px', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
@@ -495,124 +546,53 @@ const ClientManagement = () => {
 
             <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Client ID *</label>
-                <input
-                  type="text"
-                  name="clientId"
-                  required
-                  value={formData.clientId}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Client ID *</label>
+                <input type="text" name="clientId" required value={formData.clientId} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Full Name *</label>
-                <input
-                  type="text"
-                  name="fullName"
-                  placeholder="e.g. Richard Johnson"
-                  required
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Full Name *</label>
+                <input type="text" name="fullName" placeholder="e.g. Richard Johnson" required value={formData.fullName} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Email Address *</label>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="richard@gmail.com"
-                  required
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Email Address *</label>
+                <input type="email" name="email" placeholder="richard@gmail.com" required value={formData.email} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Portal Password (Default: Client123!)</label>
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="Leave empty for Client123!"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Create Password</label>
+                <input type="password" name="password" placeholder="Enter password" value={formData.password} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Phone Number *</label>
-                <input
-                  type="text"
-                  name="phone"
-                  placeholder="+91 9876543210"
-                  required
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Phone Number *</label>
+                <input type="text" name="phone" placeholder="+91 9876543210" required value={formData.phone} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Street Address</label>
-                <input
-                  type="text"
-                  name="address"
-                  placeholder="Flat 4B, Ocean View Apartments, Beach Road"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Street Address</label>
+                <input type="text" name="address" placeholder="Flat 4B, Ocean View Apartments, Beach Road" value={formData.address} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>City</label>
-                <input
-                  type="text"
-                  name="city"
-                  placeholder="Chennai"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>City</label>
+                <input type="text" name="city" placeholder="Chennai" value={formData.city} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>State</label>
-                <input
-                  type="text"
-                  name="state"
-                  placeholder="Tamil Nadu"
-                  value={formData.state}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>State</label>
+                <input type="text" name="state" placeholder="Tamil Nadu" value={formData.state} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Pincode</label>
-                <input
-                  type="text"
-                  name="pincode"
-                  placeholder="600090"
-                  value={formData.pincode}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Pincode</label>
+                <input type="text" name="pincode" placeholder="600090" value={formData.pincode} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Project Type</label>
-                <select
-                  name="projectType"
-                  value={formData.projectType}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Project Type</label>
+                <select name="projectType" value={formData.projectType} onChange={handleInputChange} style={inputStyle}>
                   <option value="Residential">Residential</option>
                   <option value="Commercial">Commercial</option>
                   <option value="Renovation">Renovation</option>
@@ -622,47 +602,56 @@ const ClientManagement = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Assign Interior Designer</label>
-                <select
-                  name="assignedDesigner"
-                  value={formData.assignedDesigner}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Assign Interior Designer</label>
+                <select name="assignedDesigner" value={formData.assignedDesigner} onChange={handleInputChange} style={inputStyle}>
                   <option value="">-- Select Designer --</option>
                   {designersList.map((d) => (
                     <option key={d._id || d.name} value={d.name || d.fullName}>
-                      {d.name || d.fullName} ({d.department || 'Designer'})
+                      {d.name || d.fullName} ({d.department || 'Design'})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Assign Site Engineer</label>
-                <select
-                  name="siteEngineer"
-                  value={formData.siteEngineer}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Assign Site Engineer</label>
+                <select name="siteEngineer" value={formData.siteEngineer} onChange={handleInputChange} style={inputStyle}>
                   <option value="">-- Select Site Engineer --</option>
                   {engineersList.map((e) => (
                     <option key={e._id || e.name} value={e.name || e.fullName}>
-                      {e.name || e.fullName} ({e.department || 'Engineer'})
+                      {e.name || e.fullName} ({e.department || 'Engineering'})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Assign Project Manager</label>
+                <select name="projectManager" value={formData.projectManager} onChange={handleInputChange} style={inputStyle}>
+                  <option value="">-- Select Project Manager --</option>
+                  {pmList.map((p) => (
+                    <option key={p._id || p.name} value={p.name || p.fullName}>
+                      {p.name || p.fullName} ({p.role || 'Project Manager'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Assign Accountant</label>
+                <select name="accountant" value={formData.accountant} onChange={handleInputChange} style={inputStyle}>
+                  <option value="">-- Select Accountant --</option>
+                  {accountantsList.map((a) => (
+                    <option key={a._id || a.name} value={a.name || a.fullName}>
+                      {a.name || a.fullName} ({a.role || 'Accountant'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Status</label>
+                <select name="status" value={formData.status} onChange={handleInputChange} style={inputStyle}>
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>

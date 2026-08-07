@@ -131,9 +131,14 @@ const Register = () => {
                   value={formData.role}
                   onChange={handleChange}
                 >
-                  <option value="Client">Client</option>
-                  <option value="Designer">Designer</option>
-                  <option value="Admin">Admin</option>
+                  <option value="Super Admin">👑 Super Admin</option>
+                  <option value="Admin">🏢 Admin</option>
+                  <option value="Project Manager">📋 Project Manager</option>
+                  <option value="Designer">🎨 Interior Designer</option>
+                  <option value="Site Engineer">👷 Site Engineer</option>
+                  <option value="Accountant">💰 Accountant</option>
+                  <option value="Sales Executive">🤝 Sales Executive</option>
+                  <option value="Client">👤 Client (View Own Project)</option>
                 </select>
               </div>
             </div>

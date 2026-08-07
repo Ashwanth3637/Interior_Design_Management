@@ -20,6 +20,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import NotificationBell from './NotificationBell';
 
 const AccountantDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -65,10 +66,12 @@ const AccountantDashboard = () => {
     date: new Date().toISOString().split('T')[0],
   });
 
-  const fetchAccountantData = async () => {
+  const fetchAccountantData = async (isInitial = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (isInitial) {
+        setLoading(true);
+        setError('');
+      }
       const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:5001/api/accountant/dashboard', {
         headers: { Authorization: `Bearer ${token}` },
@@ -82,18 +85,22 @@ const AccountantDashboard = () => {
           window.location.href = '/login';
           return;
         }
-        setError(resData.message || 'Failed to fetch Accountant dashboard');
+        if (isInitial) setError(resData.message || 'Failed to fetch Accountant dashboard');
       }
     } catch (err) {
-      setError('Network error fetching Accountant dashboard');
+      if (isInitial) setError('Network error fetching Accountant dashboard');
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAccountantData();
+    fetchAccountantData(true);
     window.scrollTo({ top: 0, behavior: 'instant' });
+    const interval = setInterval(() => {
+      fetchAccountantData(false);
+    }, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -102,6 +109,19 @@ const AccountantDashboard = () => {
       return () => clearTimeout(timer);
     }
   }, [successMsg]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsInvoiceModalOpen(false);
+        setIsPaymentModalOpen(false);
+        setIsExpenseModalOpen(false);
+        setIsReceiptModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Open Create Invoice Modal
   const openInvoiceModal = () => {
@@ -287,8 +307,8 @@ const AccountantDashboard = () => {
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '2rem 1.5rem', fontFamily: "'Inter', sans-serif" }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         
-        {/* Top Header */}
-        <div style={{ marginBottom: '1.5rem' }}>
+        {/* Top Header with Module Banner Image */}
+        <div style={{ marginBottom: '1.5rem', backgroundColor: '#ffffff', padding: '1.5rem 2rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
           <Link
             to="/dashboard"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#64748b', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.75rem' }}
@@ -304,19 +324,13 @@ const AccountantDashboard = () => {
                 Logged in as <strong>{user?.name || 'Accountant'}</strong>. Manage client invoices, track multi-installment payments, maintain site expenses, generate receipts, and produce financial reports.
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                onClick={openInvoiceModal}
-                style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.7rem 1.25rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)' }}
-              >
-                <Plus size={18} /> Create Invoice
-              </button>
-              <button
-                onClick={openExpenseModal}
-                style={{ backgroundColor: '#16a34a', color: '#ffffff', border: 'none', padding: '0.7rem 1.25rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)' }}
-              >
-                <Plus size={18} /> Maintain Expense
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <img 
+                src="/financial_reports_desk_1786024532449.png" 
+                alt="Accountant Financial Work" 
+                style={{ width: '130px', height: '75px', objectFit: 'cover', borderRadius: '12px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }} 
+              />
+              <NotificationBell />
             </div>
           </div>
         </div>
@@ -396,7 +410,7 @@ const AccountantDashboard = () => {
             { id: 'invoices', label: 'Invoice Management', icon: FileText },
             { id: 'paymentTracking', label: 'Payment Tracking', icon: CreditCard },
             { id: 'expenses', label: 'Expense Management', icon: Layers },
-            { id: 'receipts', label: 'Receipts & Download', icon: Download },
+            { id: 'receipts', label: 'Receipts', icon: Download },
             { id: 'reports', label: 'Financial Reports', icon: PieChart },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -568,7 +582,7 @@ const AccountantDashboard = () => {
                       <tr>
                         <th style={{ padding: '0.9rem 1.25rem' }}>Project Name</th>
                         <th style={{ padding: '0.9rem 1.25rem' }}>Category</th>
-                        <th style={{ padding: '0.9rem 1.25rem' }}>Vendor / Source</th>
+                        <th style={{ padding: '0.9rem 1.25rem' }}>Vendor Name</th>
                         <th style={{ padding: '0.9rem 1.25rem' }}>Expense Amount</th>
                         <th style={{ padding: '0.9rem 1.25rem' }}>Date</th>
                         <th style={{ padding: '0.9rem 1.25rem', textAlign: 'right' }}>Action</th>
@@ -635,7 +649,7 @@ const AccountantDashboard = () => {
                       onClick={() => openReceiptModal(inv)}
                       style={{ width: '100%', backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.65rem 1rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
                     >
-                      <Printer size={16} /> Generate & Print Receipt
+                      <Printer size={16} /> Download Receipt
                     </button>
                   </div>
                 ))}
@@ -776,9 +790,9 @@ const AccountantDashboard = () => {
                   onChange={(e) => setInvoiceForm({ ...invoiceForm, installmentType: e.target.value })}
                   style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
                 >
-                  <option value="Advance Payment">Advance Payment (Stage 1)</option>
-                  <option value="Second Installment">Second Installment (Stage 2)</option>
-                  <option value="Final Payment">Final Payment (Stage 3 Handover)</option>
+                  <option value="Advance Payment">Advance Payment (50%)</option>
+                  <option value="Second Installment">Second Installment (30%)</option>
+                  <option value="Final Installment">Final Payment (20%) ✅</option>
                 </select>
               </div>
 
@@ -794,7 +808,7 @@ const AccountantDashboard = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Notes / Remarks</label>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Remarks</label>
                   <input
                     type="text"
                     placeholder="Optional notes"
@@ -950,7 +964,7 @@ const AccountantDashboard = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Vendor / Source</label>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Vendor Name</label>
                   <input
                     type="text"
                     placeholder="e.g. Asian Paints, Local Carpenter"
@@ -995,19 +1009,28 @@ const AccountantDashboard = () => {
       {/* PRINTABLE RECEIPT MODAL */}
       {isReceiptModalOpen && selectedInvoice && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1.5rem' }}>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', maxWidth: '580px', width: '100%', padding: '2rem', border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #2563eb', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', maxWidth: '620px', width: '100%', padding: '2rem', border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #2563eb', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
               <div>
-                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '1.4rem', fontWeight: '800' }}>PAYMENT RECEIPT</h2>
-                <span style={{ color: '#2563eb', fontWeight: '700', fontSize: '0.85rem' }}>Interior Design Management System</span>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '1.4rem', fontWeight: '800' }}>OFFICIAL PAYMENT RECEIPT</h2>
+                <span style={{ color: '#2563eb', fontWeight: '700', fontSize: '0.85rem' }}>Interior Design ERP Management System</span>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                  Suite 402, Metro Plaza, Sector 4 • GSTIN: 33AAAAA0000A1Z5
+                </div>
               </div>
               <X size={22} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setIsReceiptModalOpen(false)} />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.9rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '10px' }}>
-                <span>Receipt / Invoice #:</span>
-                <strong style={{ color: '#2563eb' }}>{selectedInvoice.invoiceNumber}</strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', fontSize: '0.875rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '10px' }}>
+                <div>
+                  <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>Receipt / Invoice #:</span>
+                  <strong style={{ color: '#2563eb', fontSize: '1rem' }}>{selectedInvoice.invoiceNumber}</strong>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>Receipt Date:</span>
+                  <strong style={{ color: '#0f172a' }}>06 Aug 2026</strong>
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1025,6 +1048,16 @@ const AccountantDashboard = () => {
                 <strong style={{ color: '#2563eb' }}>{selectedInvoice.installmentType}</strong>
               </div>
 
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Payment Method:</span>
+                <strong style={{ color: '#16a34a' }}>Online Bank Transfer (NEFT / UPI)</strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Collected & Issued By:</span>
+                <strong style={{ color: '#334155' }}>{user?.name || 'Varshan'} (Finance Dept)</strong>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem' }}>
                 <span style={{ color: '#64748b' }}>Total Invoice Amount:</span>
                 <strong style={{ color: '#0f172a' }}>₹{selectedInvoice.amount?.toLocaleString('en-IN')}</strong>
@@ -1035,8 +1068,8 @@ const AccountantDashboard = () => {
                 <strong style={{ fontSize: '1.15rem' }}>₹{(selectedInvoice.paidAmount || selectedInvoice.amount)?.toLocaleString('en-IN')}</strong>
               </div>
 
-              <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', marginTop: '1rem' }}>
-                Thank you for your business! Official computer-generated receipt.
+              <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', marginTop: '0.75rem', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px' }}>
+                Thank you for your business! Official computer-generated receipt. Contact: finance@interiordesign.com | +91 9345262189
               </div>
             </div>
 

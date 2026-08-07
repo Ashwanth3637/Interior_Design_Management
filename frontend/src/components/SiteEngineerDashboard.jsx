@@ -20,6 +20,7 @@ import {
   Edit3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import NotificationBell from './NotificationBell';
 import WorkflowStepper from './WorkflowStepper';
 
 const SiteEngineerDashboard = () => {
@@ -44,12 +45,13 @@ const SiteEngineerDashboard = () => {
 
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch Assigned Projects
-  const fetchSiteProjects = async () => {
+  const fetchSiteProjects = async (isInitial = true) => {
     try {
-      setLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
+      if (isInitial) {
+        setLoading(true);
+        setError('');
+      }
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/site-engineer/projects?engineer=${encodeURIComponent(user?.name || '')}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -68,17 +70,17 @@ const SiteEngineerDashboard = () => {
           window.location.href = '/login';
           return;
         }
-        setError(data.message || 'Failed to fetch site engineer projects');
+        if (isInitial) setError(data.message || 'Failed to fetch site engineer projects');
       }
     } catch (err) {
-      setError('Network error connecting to site projects endpoint');
+      if (isInitial) setError('Network error connecting to site projects endpoint');
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSiteProjects();
+    fetchSiteProjects(true);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [user]);
 
@@ -88,6 +90,17 @@ const SiteEngineerDashboard = () => {
       return () => clearTimeout(timer);
     }
   }, [successMsg]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsProgressModalOpen(false);
+        setSelectedProject(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Open Progress Update Modal
   const openProgressModal = (p) => {
@@ -103,10 +116,14 @@ const SiteEngineerDashboard = () => {
   // Submit Progress Update
   const handleUpdateProgress = async (e) => {
     e.preventDefault();
-    if (!selectedProject) return;
+    if (!selectedProject) {
+      alert('Error: No project selected.');
+      return;
+    }
     try {
       setSubmitting(true);
-      const token = localStorage.getItem('token');
+      setError('');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/site-engineer/projects/${selectedProject.projectId}/progress`, {
         method: 'PUT',
         headers: {
@@ -117,13 +134,17 @@ const SiteEngineerDashboard = () => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setSuccessMsg('Site work progress updated successfully!');
+        alert(`✅ ${data.message || 'Site work progress updated successfully!'}`);
+        setSuccessMsg(data.message || 'Site work progress updated successfully!');
         setIsProgressModalOpen(false);
-        fetchSiteProjects();
+        fetchSiteProjects(true);
       } else {
+        alert(`Error: ${data.message || 'Failed to update progress'}`);
         setError(data.message || 'Failed to update progress');
       }
     } catch (err) {
+      console.error('Progress update exception:', err);
+      alert('Network error updating progress. Please check server.');
       setError('Network error updating progress');
     } finally {
       setSubmitting(false);
@@ -276,8 +297,8 @@ const SiteEngineerDashboard = () => {
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '2rem 1.5rem', fontFamily: "'Inter', sans-serif" }}>
       <div style={{ maxWidth: '1250px', margin: '0 auto' }}>
         
-        {/* Top Header */}
-        <div style={{ marginBottom: '1.5rem' }}>
+        {/* Top Header with Module Banner Image */}
+        <div style={{ marginBottom: '1.5rem', backgroundColor: '#ffffff', padding: '1.5rem 2rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
           <Link
             to="/dashboard"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#64748b', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.75rem' }}
@@ -292,6 +313,14 @@ const SiteEngineerDashboard = () => {
               <p style={{ margin: '0.25rem 0 0 0', color: '#64748b', fontSize: '0.95rem' }}>
                 Logged in as <strong>{user?.name || 'Site Engineer'}</strong>. Manage on-site execution, daily work logs, photo inspections, and issue reporting.
               </p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+              <img 
+                src="/engineer_site_inspection_1786024342723.png" 
+                alt="Site Inspection Work" 
+                style={{ width: '130px', height: '75px', objectFit: 'cover', borderRadius: '12px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }} 
+              />
+              <NotificationBell />
             </div>
           </div>
         </div>
@@ -361,13 +390,7 @@ const SiteEngineerDashboard = () => {
           </div>
         </div>
 
-        {/* Live Workflow Stepper Bar */}
-        {selectedProject && (
-          <WorkflowStepper
-            currentStage={selectedProject.workflowStage || 'Site Execution'}
-            advancePaymentPaid={selectedProject.advancePaymentPaid || false}
-          />
-        )}
+
 
         {/* NAVIGATION MODULE TABS */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.4rem', borderBottom: '1px solid #e2e8f0' }}>
@@ -462,8 +485,16 @@ const SiteEngineerDashboard = () => {
                       </p>
                       
                       <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '10px', marginBottom: '1rem', fontSize: '0.8rem', color: '#475569' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', borderBottom: '1px dashed #cbd5e1', paddingBottom: '0.3rem' }}>
+                          <span>Approved Budget:</span>
+                          <strong style={{ color: '#16a34a', fontSize: '0.85rem' }}>₹{p.budget ? p.budget.toLocaleString('en-IN') : 'TBD'}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                          <span>Execution Start Date:</span>
+                          <strong>{p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : 'Immediate'}</strong>
+                        </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                          <span>Progress:</span>
+                          <span>Site Progress:</span>
                           <strong style={{ color: '#2563eb' }}>{p.progressPercentage}%</strong>
                         </div>
                         <div style={{ width: '100%', height: '7px', backgroundColor: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
@@ -472,12 +503,18 @@ const SiteEngineerDashboard = () => {
                       </div>
 
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => openProgressModal(p)}
-                          style={{ flex: 1, backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.6rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
-                        >
-                          <Edit3 size={15} /> Update Site Progress
-                        </button>
+                        {p.advancePaymentPaid || p.workflowStage === "Advance Payment Received" || (p.invoices && p.invoices.some(i => i.status === 'Paid')) ? (
+                          <button
+                            onClick={() => openProgressModal(p)}
+                            style={{ flex: 1, backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.6rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
+                          >
+                            <Edit3 size={15} /> Update Site Progress
+                          </button>
+                        ) : (
+                          <div style={{ flex: 1, backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '0.55rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.78rem', textAlign: 'center' }}>
+                            🔒 Execution Locked (Awaiting Client Advance Payment)
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -610,19 +647,52 @@ const SiteEngineerDashboard = () => {
                         </select>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input
-                        type="text"
-                        placeholder="Image URL (e.g. https://images.unsplash.com/...)"
-                        required
-                        value={photoForm.imageUrl}
-                        onChange={(e) => setPhotoForm({ ...photoForm, imageUrl: e.target.value })}
-                        style={{ flex: 1, padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
-                      />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#475569', marginBottom: '0.3rem' }}>Select Image File / Upload Device Photo</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setPhotoForm(prev => ({ ...prev, imageUrl: reader.result }));
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '0.85rem' }}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#475569', marginBottom: '0.3rem' }}>Or Image URL Link</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. https://images.unsplash.com/..."
+                            value={photoForm.imageUrl}
+                            onChange={(e) => setPhotoForm({ ...photoForm, imageUrl: e.target.value })}
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '0.85rem' }}
+                          />
+                        </div>
+                      </div>
+
+                      {photoForm.imageUrl && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.6rem 0.85rem', background: '#f1f5f9', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                          <img src={photoForm.imageUrl} alt="Preview" style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover' }} />
+                          <div>
+                            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', display: 'block' }}>📸 Live Image Preview Ready</span>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Category: {photoForm.category}</span>
+                          </div>
+                        </div>
+                      )}
+
                       <button
                         type="submit"
                         disabled={submitting}
-                        style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
+                        style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.75rem 1.25rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)', alignSelf: 'flex-start' }}
                       >
                         <Upload size={16} /> Upload Site Image
                       </button>
@@ -863,9 +933,11 @@ const SiteEngineerDashboard = () => {
                   type="number"
                   min="0"
                   max="100"
+                  required
+                  placeholder="e.g. 63"
                   value={progressForm.progressPercentage}
-                  onChange={(e) => setProgressForm({ ...progressForm, progressPercentage: Number(e.target.value) })}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
+                  onChange={(e) => setProgressForm({ ...progressForm, progressPercentage: e.target.value })}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '1rem', fontWeight: '700', outline: 'none' }}
                 />
               </div>
 

@@ -6,6 +6,8 @@ import Login from './components/Login';
 import Register from './components/Register';
 import ForgotPassword from './components/ForgotPassword';
 import Dashboard from './components/Dashboard';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
+import AdminDashboard from './components/AdminDashboard';
 import EmployeeManagement from './components/EmployeeManagement';
 import ProjectManagement from './components/ProjectManagement';
 import ClientManagement from './components/ClientManagement';
@@ -15,6 +17,8 @@ import SiteEngineerDashboard from './components/SiteEngineerDashboard';
 import ProjectManagerDashboard from './components/ProjectManagerDashboard';
 import AccountantDashboard from './components/AccountantDashboard';
 import SalesExecutiveDashboard from './components/SalesExecutiveDashboard';
+import LandingPage from './components/LandingPage';
+import EmployeeCheckin from './components/EmployeeCheckin';
 import ScrollToTop from './components/ScrollToTop';
 import './App.css';
 
@@ -24,13 +28,30 @@ function App() {
       <Router>
         <ScrollToTop />
         <Routes>
-          {/* Root Redirect */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-
-          {/* Public Authentication Routes */}
+          {/* Public Landing & Authentication Routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/checkin" element={<EmployeeCheckin />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+
+          {/* Dedicated Super Admin & Admin Routes */}
+          <Route
+            path="/super-admin"
+            element={
+              <ProtectedRoute allowedRoles={['Super Admin', 'SUPER_ADMIN']}>
+                <SuperAdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected Routes */}
           <Route

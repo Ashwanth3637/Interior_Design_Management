@@ -50,6 +50,7 @@ const ProjectManagement = () => {
     clientName: '',
     clientEmail: '',
     clientPhone: '',
+    clientPassword: '',
     location: '',
     projectType: 'Residential',
     budget: 500000,
@@ -58,8 +59,14 @@ const ProjectManagement = () => {
     projectManager: '',
     siteEngineer: '',
     status: 'Planning',
-    progressPercentage: 0
+    startDate: '',
+    endDate: '',
+    progressPercentage: 0,
+    assignedWorkersCount: 0
   });
+
+  const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' };
+  const labelStyle = { display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' };
 
   // Design File Upload state for Designers
   const [designTitle, setDesignTitle] = useState('');
@@ -75,10 +82,12 @@ const ProjectManagement = () => {
   const [matEstPrice, setMatEstPrice] = useState('');
   const [addingMaterial, setAddingMaterial] = useState(false);
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (isInitial = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (isInitial) {
+        setLoading(true);
+        setError('');
+      }
       const queryParams = new URLSearchParams({
         page,
         limit: 6,
@@ -107,12 +116,12 @@ const ProjectManagement = () => {
           window.location.href = '/login';
           return;
         }
-        setError(data.message || 'Failed to fetch projects');
+        if (isInitial) setError(data.message || 'Failed to fetch projects');
       }
     } catch (err) {
-      setError('Server error connecting to projects endpoint');
+      if (isInitial) setError('Server error connecting to projects endpoint');
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
@@ -199,9 +208,13 @@ const ProjectManagement = () => {
   };
 
   useEffect(() => {
-    fetchProjects();
+    fetchProjects(true);
     setSuccessMsg('');
     window.scrollTo({ top: 0, behavior: 'instant' });
+    const interval = setInterval(() => {
+      fetchProjects(false);
+    }, 3000);
+    return () => clearInterval(interval);
   }, [page, search, status, projectType]);
 
   useEffect(() => {
@@ -243,6 +256,16 @@ const ProjectManagement = () => {
     }
   }, [successMsg]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -261,6 +284,7 @@ const ProjectManagement = () => {
       clientName: '',
       clientEmail: '',
       clientPhone: '',
+      clientPassword: '',
       location: '',
       projectType: 'Residential',
       budget: 500000,
@@ -373,8 +397,8 @@ const ProjectManagement = () => {
 
   return (
     <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '2rem 3rem', fontFamily: "'Inter', sans-serif" }}>
-      {/* Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      {/* Header Bar with Module Banner Image */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', backgroundColor: '#ffffff', padding: '1.5rem 2rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
         <div>
           <Link to="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>
             <ArrowLeft size={16} /> Back to Dashboard
@@ -388,27 +412,35 @@ const ProjectManagement = () => {
               : 'Monitor client renovation milestones, budgets, site progress, and assigned designers.'}
           </p>
         </div>
-        {isAdminOrPM && (
-          <button
-            onClick={openAddModal}
-            style={{
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              border: 'none',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              fontWeight: '600',
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
-            }}
-          >
-            <Plus size={18} /> Create New Project
-          </button>
-        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <img 
+            src="/hero_living_room_1786022741605.png" 
+            alt="Interior Project" 
+            style={{ width: '130px', height: '80px', objectFit: 'cover', borderRadius: '12px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }} 
+          />
+          {isAdminOrPM && (
+            <button
+              onClick={openAddModal}
+              style={{
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: '600',
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+              }}
+            >
+              <Plus size={18} /> Create New Project
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Notifications */}
@@ -477,8 +509,16 @@ const ProjectManagement = () => {
       {loading ? (
         <div style={{ textAlign: 'center', padding: '4rem', color: '#64748b' }}>Loading active projects...</div>
       ) : projects.length === 0 ? (
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '3rem', textAlign: 'center', border: '1px solid #e2e8f0', color: '#64748b' }}>
-          No interior design projects found. Click <strong>Create New Project</strong> to add one.
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '3.5rem 2rem', textAlign: 'center', border: '1px solid #e2e8f0', color: '#64748b', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <img 
+            src="/hero_living_room_1786022741605.png" 
+            alt="No Projects Found" 
+            style={{ width: '160px', height: '100px', objectFit: 'cover', borderRadius: '12px', opacity: 0.85, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} 
+          />
+          <div>
+            <h4 style={{ margin: '0 0 0.25rem 0', color: '#0f172a', fontSize: '1.1rem', fontWeight: '700' }}>No interior design projects found</h4>
+            <p style={{ margin: 0, fontSize: '0.9rem' }}>Click <strong>Create New Project</strong> to begin onboarding a client project.</p>
+          </div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
@@ -598,91 +638,43 @@ const ProjectManagement = () => {
 
             <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Project ID *</label>
-                <input
-                  type="text"
-                  name="projectId"
-                  required
-                  disabled={isDesigner}
-                  value={formData.projectId}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: isDesigner ? '#e2e8f0' : '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Project ID *</label>
+                <input type="text" name="projectId" required disabled={isDesigner} value={formData.projectId} onChange={handleInputChange} style={{ ...inputStyle, backgroundColor: isDesigner ? '#e2e8f0' : '#f8fafc' }} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Project Title *</label>
-                <input
-                  type="text"
-                  name="projectName"
-                  placeholder="e.g. Modern Villa Interior"
-                  required
-                  disabled={isDesigner}
-                  value={formData.projectName}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: isDesigner ? '#e2e8f0' : '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Project Title *</label>
+                <input type="text" name="projectName" placeholder="e.g. Modern Villa Interior" required disabled={isDesigner} value={formData.projectName} onChange={handleInputChange} style={{ ...inputStyle, backgroundColor: isDesigner ? '#e2e8f0' : '#f8fafc' }} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Client Name *</label>
-                <input
-                  type="text"
-                  name="clientName"
-                  required
-                  disabled={isDesigner}
-                  value={formData.clientName}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: isDesigner ? '#e2e8f0' : '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Client Name *</label>
+                <input type="text" name="clientName" required disabled={isDesigner} value={formData.clientName} onChange={handleInputChange} style={{ ...inputStyle, backgroundColor: isDesigner ? '#e2e8f0' : '#f8fafc' }} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Client Email *</label>
-                <input
-                  type="email"
-                  name="clientEmail"
-                  required
-                  disabled={isDesigner}
-                  value={formData.clientEmail}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: isDesigner ? '#e2e8f0' : '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Client Email *</label>
+                <input type="email" name="clientEmail" required disabled={isDesigner} value={formData.clientEmail} onChange={handleInputChange} style={{ ...inputStyle, backgroundColor: isDesigner ? '#e2e8f0' : '#f8fafc' }} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Client Phone *</label>
-                <input
-                  type="text"
-                  name="clientPhone"
-                  required
-                  value={formData.clientPhone}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Client Phone *</label>
+                <input type="text" name="clientPhone" required value={formData.clientPhone} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Site Location *</label>
-                <input
-                  type="text"
-                  name="location"
-                  placeholder="e.g. Green Park, Sector 4"
-                  required
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Client Login Password *</label>
+                <input type="password" name="clientPassword" placeholder="e.g. Client123! or custom password" value={formData.clientPassword || ''} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Project Type</label>
-                <select
-                  name="projectType"
-                  value={formData.projectType}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Site Location *</label>
+                <input type="text" name="location" placeholder="e.g. Green Park, Sector 4" required value={formData.location} onChange={handleInputChange} style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Project Type</label>
+                <select name="projectType" value={formData.projectType} onChange={handleInputChange} style={inputStyle}>
                   <option value="Residential">Residential</option>
                   <option value="Commercial">Commercial</option>
                   <option value="Renovation">Renovation</option>
@@ -692,31 +684,16 @@ const ProjectManagement = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Project Budget (₹) *</label>
-                <input
-                  type="number"
-                  name="budget"
-                  required
-                  value={formData.budget}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Project Budget (₹) *</label>
+                <input type="number" name="budget" required value={formData.budget} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Assigned Designer *</label>
-                <select
-                  name="assignedDesigner"
-                  required
-                  value={formData.assignedDesigner}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Assigned Designer *</label>
+                <select name="assignedDesigner" required value={formData.assignedDesigner} onChange={handleInputChange} style={inputStyle}>
                   <option value="">-- Select Designer --</option>
                   {designersList.map((emp) => (
-                    <option key={emp._id} value={emp.fullName}>
-                      {emp.fullName} ({emp.department})
-                    </option>
+                    <option key={emp._id} value={emp.fullName}>{emp.fullName} ({emp.department})</option>
                   ))}
                   {formData.assignedDesigner && !designersList.some(d => d.fullName === formData.assignedDesigner) && (
                     <option value={formData.assignedDesigner}>{formData.assignedDesigner}</option>
@@ -725,36 +702,21 @@ const ProjectManagement = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Assigned Site Engineer</label>
-                <select
-                  name="siteEngineer"
-                  value={formData.siteEngineer}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Assigned Site Engineer</label>
+                <select name="siteEngineer" value={formData.siteEngineer} onChange={handleInputChange} style={inputStyle}>
                   <option value="">-- Select Site Engineer --</option>
                   {siteEngineersList.map((emp) => (
-                    <option key={emp._id} value={emp.fullName}>
-                      {emp.fullName} ({emp.department})
-                    </option>
+                    <option key={emp._id} value={emp.fullName}>{emp.fullName} ({emp.department})</option>
                   ))}
-                  {formData.siteEngineer && 
-                   formData.siteEngineer !== 'Project Lead' && 
-                   formData.siteEngineer !== 'Unassigned' && 
-                   !siteEngineersList.some(e => e.fullName === formData.siteEngineer) && (
+                  {formData.siteEngineer && formData.siteEngineer !== 'Project Lead' && formData.siteEngineer !== 'Unassigned' && !siteEngineersList.some(e => e.fullName === formData.siteEngineer) && (
                     <option value={formData.siteEngineer}>{formData.siteEngineer}</option>
                   )}
                 </select>
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Project Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                >
+                <label style={labelStyle}>Project Status</label>
+                <select name="status" value={formData.status} onChange={handleInputChange} style={inputStyle}>
                   <option value="Planning">Planning</option>
                   <option value="In Progress">In Progress</option>
                   <option value="Review">Review</option>
@@ -764,16 +726,8 @@ const ProjectManagement = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Progress Completion (%)</label>
-                <input
-                  type="number"
-                  name="progressPercentage"
-                  min="0"
-                  max="100"
-                  value={formData.progressPercentage}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
-                />
+                <label style={labelStyle}>Progress Completion (%)</label>
+                <input type="number" name="progressPercentage" min="0" max="100" value={formData.progressPercentage} onChange={handleInputChange} style={inputStyle} />
               </div>
 
               {/* Design Upload Section for Designers / PMs */}
