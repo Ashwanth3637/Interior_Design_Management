@@ -1,11 +1,12 @@
-import React, { useState, useContext } from 'react';
+import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
+import { LogIn, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -89,16 +90,38 @@ const Login = () => {
                 Forgot password?
               </Link>
             </div>
-            <div className="input-icon-wrapper">
+            <div className="input-icon-wrapper" style={{ position: 'relative' }}>
               <Lock className="input-icon" size={18} />
               <input
                 id="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                style={{ paddingRight: '2.5rem' }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyInContent: 'center'
+                }}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
@@ -117,19 +140,49 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Quick Demo Credentials Guide */}
+        {/* Quick Demo Credentials Helper */}
         <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#64748b' }}>
-          <span style={{ fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '0.4rem' }}>💡 Quick Test Credentials:</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <div>
-              <strong>Super Admin:</strong> <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px', color: '#2563eb' }}>admin@company.com</code> / <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>Admin123!</code>
-            </div>
-            <div>
-              <strong>Accountant:</strong> <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px', color: '#2563eb' }}>accountant@company.com</code> / <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>Admin123!</code>
-            </div>
-            <div>
-              <strong>Client Portal:</strong> <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px', color: '#2563eb' }}>jai@gmail.com</code> / <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>Client123!</code>
-            </div>
+          <span style={{ fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '0.5rem' }}>
+            🔑 Quick Click-to-Autofill Credentials:
+          </span>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
+            {[
+              { role: 'Super Admin', email: 'superadmin@demo.com', pass: 'Password123!' },
+              { role: 'Admin', email: 'trisha@gmail.com', pass: 'admin123' },
+              { role: 'Designer (Haasly)', email: 'haasly@gmail.com', pass: 'emp123' },
+              { role: 'Designer (Jacob)', email: 'jacob@gmail.com', pass: 'emp123' },
+              { role: 'Site Engineer (Riyas)', email: 'riyas@gmail.com', pass: 'emp123' },
+              { role: 'Site Engineer (Smandhana)', email: 'smandhana@gmail.com', pass: 'emp123' },
+              { role: 'PM (Ashwanth)', email: 'ashwanth@gmail.com', pass: 'emp123' },
+              { role: 'PM (Gaurav)', email: 'gaurav@gmail.com', pass: 'emp123' },
+              { role: 'Sales Exec (Veeresh)', email: 'veeresh@gmail.com', pass: 'emp123' },
+              { role: 'Accountant (Varshan)', email: 'varshan@gmail.com', pass: 'emp123' },
+              { role: 'Client (Raju)', email: 'raju@gmail.com', pass: 'client123' }
+            ].map((cred, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => {
+                  setEmail(cred.email);
+                  setPassword(cred.pass);
+                }}
+                style={{
+                  textAlign: 'left',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  padding: '0.4rem 0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ fontWeight: '700', color: '#1e293b' }}>{cred.role}</div>
+                <div style={{ color: '#2563eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cred.email}</div>
+                <div style={{ color: '#64748b' }}>Pass: <code>{cred.pass}</code></div>
+              </button>
+            ))}
           </div>
         </div>
 

@@ -29,7 +29,8 @@ import {
   CheckCircle2,
   PartyPopper,
   MessageSquare,
-  Upload
+  Upload,
+  QrCode
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import WorkflowStepper from './WorkflowStepper';
@@ -1149,51 +1150,60 @@ const ClientPortal = () => {
         </div>
       )}
 
-      {/* Simulated Payment Popup Modal */}
+      {/* Interactive Payment Popup Modal with UPI QR Code */}
       {isPayModalOpen && selectedInvoice && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', width: '100%', maxWidth: '480px', padding: '2rem', border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)' }}>
-            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-              <div style={{ width: '56px', height: '56px', backgroundColor: '#eff6ff', color: '#2563eb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
-                <ShieldCheck size={32} />
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', width: '100%', maxWidth: '480px', padding: '2rem', border: '1px solid #e2e8f0', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', position: 'relative' }}>
+            <button
+              onClick={() => setIsPayModalOpen(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: '#f1f5f9', border: 'none', color: '#64748b', cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <X size={18} />
+            </button>
+
+            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ width: '52px', height: '52px', backgroundColor: '#eff6ff', color: '#2563eb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem auto' }}>
+                <QrCode size={28} />
               </div>
-              <h3 style={{ margin: '0 0 0.4rem 0', color: '#0f172a', fontSize: '1.35rem', fontWeight: '700' }}>Confirm Online Payment</h3>
-              <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>
-                Gateway Checkout for <strong>{selectedInvoice.invoiceNumber}</strong>
+              <h3 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '1.3rem', fontWeight: '800' }}>Scan & Pay via UPI QR</h3>
+              <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>
+                Invoice: <strong>{selectedInvoice.invoiceNumber}</strong> • {selectedInvoice.title}
               </p>
             </div>
 
-            <div style={{ backgroundColor: '#f8fafc', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-                <span style={{ color: '#64748b' }}>Milestone Title:</span>
-                <strong style={{ color: '#0f172a' }}>{selectedInvoice.title}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: '700', paddingTop: '0.5rem', borderTop: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#0f172a' }}>Total Payable Amount:</span>
-                <span style={{ color: '#16a34a' }}>₹{selectedInvoice.amount?.toLocaleString('en-IN')}</span>
+            {/* Payable Amount Summary */}
+            <div style={{ backgroundColor: '#f8fafc', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.25rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', display: 'block', marginBottom: '0.2rem' }}>Total Payable Amount</span>
+              <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#16a34a', letterSpacing: '-0.02em' }}>
+                ₹{selectedInvoice.amount?.toLocaleString('en-IN')}
               </div>
             </div>
 
-            {/* Online Payment Mode Selector */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '0.5rem' }}>
-                Payment Method: <span style={{ color: '#16a34a', fontWeight: '800' }}>Online Payment Only</span>
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
-                {['UPI / GPay / PhonePe', 'Credit / Debit Card', 'Net Banking'].map((mode, idx) => (
-                  <div key={mode} style={{ border: '2px solid #2563eb', backgroundColor: '#eff6ff', borderRadius: '8px', padding: '0.65rem 0.4rem', textAlign: 'center', fontSize: '0.78rem', fontWeight: '800', color: '#2563eb' }}>
-                    {mode}
-                  </div>
-                ))}
+            {/* Live Generated UPI QR Code Card */}
+            <div style={{ backgroundColor: '#ffffff', border: '2px dashed #2563eb', borderRadius: '16px', padding: '1.25rem', textAlign: 'center', marginBottom: '1.25rem', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.08)' }}>
+              <div style={{ display: 'inline-block', padding: '10px', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: '0.75rem' }}>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=interiorcraft@upi&pn=InteriorCraftStudio&am=${selectedInvoice.amount}&tn=Invoice_${selectedInvoice.invoiceNumber}&cu=INR`)}`}
+                  alt="UPI Payment QR Code"
+                  style={{ width: '170px', height: '170px', display: 'block', borderRadius: '8px' }}
+                />
+              </div>
+
+              <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#0f172a', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                <Sparkles size={14} color="#2563eb" /> Scan with any UPI App (GPay / PhonePe / Paytm / BHIM)
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', backgroundColor: '#f1f5f9', padding: '0.3rem 0.75rem', borderRadius: '9999px', display: 'inline-block', fontWeight: '600' }}>
+                UPI VPA: <span style={{ color: '#2563eb', fontWeight: '800' }}>interiorcraft@upi</span>
               </div>
             </div>
 
+            {/* Payment Confirmation Action */}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
                 type="button"
                 disabled={isProcessingPayment}
                 onClick={() => setIsPayModalOpen(false)}
-                style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', fontWeight: '600', cursor: 'pointer' }}
+                style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', fontWeight: '700', fontSize: '0.875rem', cursor: 'pointer' }}
               >
                 Cancel
               </button>
@@ -1201,9 +1211,9 @@ const ClientPortal = () => {
                 type="button"
                 disabled={isProcessingPayment}
                 onClick={handleConfirmSimulatedPayment}
-                style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', backgroundColor: '#16a34a', color: '#ffffff', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)' }}
+                style={{ flex: 1.5, padding: '0.75rem', borderRadius: '10px', border: 'none', backgroundColor: '#16a34a', color: '#ffffff', fontWeight: '800', fontSize: '0.875rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 4px 14px rgba(22, 163, 74, 0.35)' }}
               >
-                {isProcessingPayment ? 'Processing...' : '💳 Pay Online Now'}
+                {isProcessingPayment ? 'Verifying Payment...' : '✅ I Have Completed Payment'}
               </button>
             </div>
           </div>
