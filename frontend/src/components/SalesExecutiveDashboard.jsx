@@ -24,6 +24,7 @@ import {
 import { Link } from 'react-router-dom';
 import WorkflowStepper from './WorkflowStepper';
 import NotificationBell from './NotificationBell';
+import { designImages } from '../assets/images';
 
 const SalesExecutiveDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -370,6 +371,50 @@ const SalesExecutiveDashboard = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* DESIGN PORTFOLIO SHOWCASE FOR SALES PITCHES */}
+        <div style={{ marginTop: '2.5rem', backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#0f172a' }}>Sales Pitch Portfolio Showcase</h3>
+              <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>High-resolution interior design concepts to showcase to prospective clients.</p>
+            </div>
+            <span style={{ fontSize: '0.75rem', fontWeight: '700', backgroundColor: '#eff6ff', color: '#2563eb', padding: '0.3rem 0.75rem', borderRadius: '9999px' }}>
+              6 Ready Assets
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1.25rem' }}>
+            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              <img src={designImages.livingRoom} alt="Living Room" style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
+              <div style={{ padding: '0.75rem', background: '#f8fafc' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2563eb' }}>Living Room</span>
+                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>Modern Warm Lounge</h4>
+              </div>
+            </div>
+            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              <img src={designImages.kitchen} alt="Modular Kitchen" style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
+              <div style={{ padding: '0.75rem', background: '#f8fafc' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2563eb' }}>Modular Kitchen</span>
+                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>Luxury Oak Countertop</h4>
+              </div>
+            </div>
+            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              <img src={designImages.bedroom} alt="Master Bedroom" style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
+              <div style={{ padding: '0.75rem', background: '#f8fafc' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2563eb' }}>Bedroom</span>
+                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>Penthouse Master Suite</h4>
+              </div>
+            </div>
+            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              <img src={designImages.office} alt="Executive Office" style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
+              <div style={{ padding: '0.75rem', background: '#f8fafc' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2563eb' }}>Office</span>
+                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>Executive Home Office</h4>
+              </div>
+            </div>
           </div>
         </div>
       </div>

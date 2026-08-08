@@ -34,6 +34,7 @@ import {
 import { Link } from 'react-router-dom';
 import WorkflowStepper from './WorkflowStepper';
 import NotificationBell from './NotificationBell';
+import { designImages } from '../assets/images';
 
 const ClientPortal = () => {
   const { user } = useContext(AuthContext);
@@ -551,10 +552,57 @@ const ClientPortal = () => {
                   Uploaded by Interior Designer <strong>{project.assignedDesigner}</strong>. Hover to preview in full details.
                 </p>
 
-                {!project.designs || project.designs.length === 0 ? (
-                  <div style={{ backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1', padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>
-                    <ImageIcon size={40} color="#94a3b8" style={{ marginBottom: '0.5rem' }} />
-                    <p style={{ margin: 0, fontWeight: '600' }}>No design files uploaded by the designer yet.</p>
+                {(!project.designs || project.designs.length === 0) ? (
+                  <div>
+                    <div style={{ backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe', padding: '1rem 1.25rem', marginBottom: '1.5rem', color: '#1e40af', fontSize: '0.85rem' }}>
+                      ✨ Showing curated 3D interior design concepts for your project layout:
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 260px))', gap: '1.25rem' }}>
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#ffffff', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                        <div className="design-card-img-wrapper" onClick={() => setPreviewImage({ title: 'Living Room Concept', fileUrl: designImages.livingRoom, designType: '3D Render' })} style={{ height: '140px' }}>
+                          <img src={designImages.livingRoom} alt="Living Room" className="design-card-img" />
+                          <div className="design-card-overlay">
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#0f172a', padding: '0.4rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Eye size={16} color="#2563eb" /> Preview
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ padding: '0.95rem' }}>
+                          <h4 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '800' }}>Living Room Modern Concept</h4>
+                          <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '600' }}>3D Render • Approved</span>
+                        </div>
+                      </div>
+
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#ffffff', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                        <div className="design-card-img-wrapper" onClick={() => setPreviewImage({ title: 'Luxury Modular Kitchen', fileUrl: designImages.kitchen, designType: '3D Render' })} style={{ height: '140px' }}>
+                          <img src={designImages.kitchen} alt="Modular Kitchen" className="design-card-img" />
+                          <div className="design-card-overlay">
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#0f172a', padding: '0.4rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Eye size={16} color="#2563eb" /> Preview
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ padding: '0.95rem' }}>
+                          <h4 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '800' }}>Luxury Oak Modular Kitchen</h4>
+                          <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '600' }}>3D Render • Under Review</span>
+                        </div>
+                      </div>
+
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#ffffff', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                        <div className="design-card-img-wrapper" onClick={() => setPreviewImage({ title: 'Master Bedroom Suite', fileUrl: designImages.bedroom, designType: '3D Render' })} style={{ height: '140px' }}>
+                          <img src={designImages.bedroom} alt="Master Bedroom" className="design-card-img" />
+                          <div className="design-card-overlay">
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#0f172a', padding: '0.4rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Eye size={16} color="#2563eb" /> Preview
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ padding: '0.95rem' }}>
+                          <h4 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '800' }}>Master Bedroom Suite</h4>
+                          <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '600' }}>3D Render • Approved</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 260px))', gap: '1.25rem' }}>
@@ -1129,11 +1177,11 @@ const ClientPortal = () => {
             {/* Online Payment Mode Selector */}
             <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '0.5rem' }}>
-                Select Payment Mode:
+                Payment Method: <span style={{ color: '#16a34a', fontWeight: '800' }}>Online Payment Only</span>
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
-                {['UPI / GPay', 'Credit / Debit Card', 'Net Banking'].map((mode, idx) => (
-                  <div key={mode} style={{ border: idx === 0 ? '2px solid #2563eb' : '1px solid #cbd5e1', backgroundColor: idx === 0 ? '#eff6ff' : '#ffffff', borderRadius: '8px', padding: '0.6rem 0.4rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '700', color: idx === 0 ? '#2563eb' : '#475569', cursor: 'pointer' }}>
+                {['UPI / GPay / PhonePe', 'Credit / Debit Card', 'Net Banking'].map((mode, idx) => (
+                  <div key={mode} style={{ border: '2px solid #2563eb', backgroundColor: '#eff6ff', borderRadius: '8px', padding: '0.65rem 0.4rem', textAlign: 'center', fontSize: '0.78rem', fontWeight: '800', color: '#2563eb' }}>
                     {mode}
                   </div>
                 ))}

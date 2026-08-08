@@ -1,5 +1,7 @@
 const Project = require("../models/project");
 const User = require("../models/User");
+const { createNotification } = require("../utils/notificationHelper");
+const { sendPaymentReceiptEmail, sendProjectCompletionEmail } = require("../utils/emailService");
 
 // @desc    Get all projects (with search, status filter, projectType filter, & pagination)
 // @route   GET /api/projects
@@ -119,6 +121,7 @@ exports.createProject = async (req, res) => {
       clientName,
       clientEmail,
       clientPhone,
+      clientPassword,
       location,
       projectType,
       budget,
@@ -140,6 +143,8 @@ exports.createProject = async (req, res) => {
       });
     }
 
+    const finalPass = clientPassword && clientPassword.trim() ? clientPassword.trim() : 'Client123!';
+
     const project = await Project.create({
       projectId,
       projectName,
@@ -158,18 +163,30 @@ exports.createProject = async (req, res) => {
       progressPercentage,
     });
 
-    // Auto-create Client User login account if clientEmail is provided
+    // Auto-create / Update Client User login account if clientEmail is provided
     if (clientEmail) {
-      const existingUser = await User.findOne({ email: clientEmail });
-      if (!existingUser) {
-        await User.create({
+      const cleanEmail = clientEmail.toLowerCase().trim();
+      let user = await User.findOne({ email: cleanEmail });
+      if (!user) {
+        user = await User.create({
           name: clientName || 'Client User',
-          email: clientEmail,
-          password: 'Client123!',
+          email: cleanEmail,
+          password: finalPass,
           role: 'Client',
           phone: clientPhone || '',
         });
+      } else {
+        user.password = finalPass;
+        await user.save();
       }
+
+      // Dispatch Welcome Email to Client with login credentials
+      const { sendWelcomeEmail } = require('../utils/emailService');
+      sendWelcomeEmail({
+        clientEmail: cleanEmail,
+        clientName: clientName || 'Valued Client',
+        password: finalPass,
+      }).catch(err => console.error("Welcome email error on project creation:", err));
     }
 
     res.status(201).json({
@@ -326,9 +343,81 @@ exports.payInvoice = async (req, res) => {
 
     invoice.status = "Paid";
     invoice.paidAt = new Date();
-    project.spentAmount = (project.spentAmount || 0) + invoice.amount;
+    
+    // Sum total of all paid invoices
+    const totalPaid = project.invoices.reduce((acc, inv) => {
+      return acc + (inv.status === "Paid" ? (inv.amount || 0) : 0);
+    }, 0);
+    project.spentAmount = totalPaid;
+
+    // Automatic Workflow Advancement based on Paid Invoice Stage
+    if (invoice.installmentType === "Advance Payment" || invoice.installmentType === "Advance" || invoice.title.includes("Advance")) {
+      project.workflowStage = "Execution Started";
+      project.status = "In Progress";
+      project.advancePaymentPaid = true;
+    } else if (invoice.installmentType === "Second Installment" || invoice.title.includes("Second")) {
+      project.workflowStage = "Second Installment Paid";
+      project.status = "In Progress";
+
+      // Auto-create Final 20% Invoice (Ready for 100% completion)
+      const count = (project.invoices?.length || 0) + 1;
+      const finalAmount = Math.round((project.budget || 560000) * 0.2);
+      const hasFinalInv = project.invoices.some(i => i.installmentType === "Final Installment" || i.title.includes("Final"));
+      
+      if (!hasFinalInv) {
+        project.invoices.push({
+          invoiceNumber: `INV-${project.projectId}-${count}`,
+          title: "20% Final Handover Installment Invoice",
+          installmentType: "Final Installment",
+          amount: finalAmount,
+          paidAmount: 0,
+          status: "Unpaid",
+          notes: "Final balance due upon 100% site execution completion & quality inspection handover.",
+        });
+      }
+    } else if (invoice.installmentType === "Final Installment" || invoice.title.includes("Final")) {
+      project.workflowStage = "Client Handover";
+      project.status = "Completed";
+      project.progressPercentage = 100;
+    }
 
     await project.save();
+
+    // Dispatch Payment Receipt Email to Client
+    if (project.clientEmail) {
+      sendPaymentReceiptEmail({
+        clientEmail: project.clientEmail,
+        clientName: project.clientName,
+        projectName: project.projectName,
+        invoiceNumber: invoice.invoiceNumber,
+        paidAmount: invoice.paidAmount || invoice.amount,
+      }).catch(err => console.error("Payment receipt email error:", err));
+    }
+
+    // Trigger Notification for Advance Payment Received -> Site Engineer & Project Manager
+    if (invoice.installmentType === "Advance Payment" || invoice.title.includes("Advance")) {
+      await createNotification({
+        recipientRole: "Site Engineer",
+        recipientName: project.siteEngineer,
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Advance Payment Received",
+        message: `Advance payment of ₹${(invoice.amount || 0).toLocaleString("en-IN")} received for project "${project.projectName}". Site execution can now begin!`,
+        type: "payment_received",
+      });
+      await createNotification({
+        recipientRole: "Project Manager",
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Advance Payment Received",
+        message: `Advance payment of ₹${(invoice.amount || 0).toLocaleString("en-IN")} received for project "${project.projectName}".`,
+        type: "payment_received",
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -340,7 +429,7 @@ exports.payInvoice = async (req, res) => {
   }
 };
 
-// @desc    Submit Client Design Approval & Feedback (Client)
+// @desc    Submit Client Design Approval or Revision Request (Client)
 // @route   PUT /api/projects/:id/approve-design
 // @access  Private
 exports.approveDesign = async (req, res) => {
@@ -355,7 +444,66 @@ exports.approveDesign = async (req, res) => {
     if (status) project.designApprovalStatus = status;
     if (feedback !== undefined) project.clientFeedback = feedback;
 
+    if (status === "Revision Requested" || status === "Changes Requested") {
+      project.workflowStage = "Revision Requested";
+      project.designApprovalStatus = "Revision Requested";
+    } else if (status === "Approved") {
+      project.workflowStage = "Design Approved";
+      project.designApprovalStatus = "Approved";
+    } else if (status === "Revision Submitted") {
+      project.workflowStage = "Client Review";
+      project.designApprovalStatus = "Pending Review";
+      project.designVersion = (project.designVersion || 1) + 1;
+    }
+
     await project.save();
+
+    // Trigger Notifications for Design Revision or Design Approval
+    if (status === "Revision Requested" || status === "Changes Requested") {
+      await createNotification({
+        recipientRole: "Interior Designer",
+        recipientName: project.assignedDesigner,
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Revision Requested by Client",
+        message: `Client ${project.clientName} requested revisions for project "${project.projectName}". Feedback: "${feedback || 'Please update design concept.'}"`,
+        type: "revision_requested",
+      });
+      await createNotification({
+        recipientRole: "Project Manager",
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Revision Requested by Client",
+        message: `Client ${project.clientName} requested revisions for project "${project.projectName}".`,
+        type: "revision_requested",
+      });
+    } else if (status === "Approved") {
+      await createNotification({
+        recipientRole: "Project Manager",
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Design Approved by Client",
+        message: `Client ${project.clientName} approved design layout for project "${project.projectName}". Ready for quotation generation!`,
+        type: "design_approved",
+      });
+      await createNotification({
+        recipientRole: "Interior Designer",
+        recipientName: project.assignedDesigner,
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Design Approved by Client",
+        message: `Great news! Client ${project.clientName} approved your design layout for project "${project.projectName}".`,
+        type: "design_approved",
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -379,11 +527,43 @@ exports.updateProgress = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    if (progressPercentage !== undefined) project.progressPercentage = Number(progressPercentage);
+    const newPct = progressPercentage !== undefined ? Number(progressPercentage) : project.progressPercentage;
+    project.progressPercentage = newPct;
     if (status) project.status = status;
     if (timeline) project.timeline = timeline;
 
+    // Condition 4 & 8: Automatic Conditions based on Site Execution Progress
+    if (newPct >= 60 && newPct < 100 && project.workflowStage !== "Second Installment Quotation Generated" && project.workflowStage !== "Second Installment Paid") {
+      project.workflowStage = "Site Progress 60%";
+    } else if (newPct === 100) {
+      project.status = "Completed";
+      project.workflowStage = "Project Completed";
+    }
+
     await project.save();
+
+    // Trigger Notification & Email for Project Completed -> Client
+    if (newPct === 100 || status === "Completed" || project.workflowStage === "Project Completed") {
+      if (project.clientEmail) {
+        sendProjectCompletionEmail({
+          clientEmail: project.clientEmail,
+          clientName: project.clientName,
+          projectName: project.projectName,
+        }).catch(err => console.error("Project completion email error:", err));
+      }
+
+      await createNotification({
+        recipientRole: "Client",
+        recipientName: project.clientName,
+        senderName: req.user?.name || "Project Manager",
+        senderRole: req.user?.role || "Project Manager",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Project Completed 🎉",
+        message: `Congratulations ${project.clientName}! Your interior design project "${project.projectName}" has been successfully completed 100%!`,
+        type: "project_completed",
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -479,5 +659,153 @@ exports.deleteMaterial = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || "Error removing material" });
+  }
+};
+
+// @desc    Client Respond to Official Quotation (Accept/Reject)
+// @route   PUT /api/projects/:id/respond-quotation
+// @access  Private/Client
+exports.respondQuotation = async (req, res) => {
+  try {
+    const { quotationId, status, rejectionReason } = req.body; // 'Accepted' or 'Rejected'
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    let targetQuotation;
+    if (quotationId) {
+      targetQuotation = project.quotations.id(quotationId);
+    } else if (project.quotations && project.quotations.length > 0) {
+      targetQuotation = project.quotations[project.quotations.length - 1];
+    }
+
+    if (!targetQuotation) {
+      return res.status(404).json({ success: false, message: "Quotation record not found" });
+    }
+
+    targetQuotation.status = status === 'Accepted' ? 'Accepted' : 'Rejected';
+    project.quotationApproved = status === 'Accepted';
+
+    if (status === 'Accepted') {
+      project.workflowStage = 'Quotation Approved';
+
+      // Auto-generate 50% Advance Payment Invoice when Client Approves Quotation
+      const totalAmount = targetQuotation.totalAmount || project.budget || 500000;
+      const advanceAmount = Math.round(totalAmount * 0.5);
+
+      if (!project.invoices) project.invoices = [];
+      const hasAdvanceInvoice = project.invoices.some(i => i.installmentType === 'Advance' || i.title?.includes('Advance'));
+
+      if (!hasAdvanceInvoice) {
+        project.invoices.push({
+          invoiceNumber: `INV-${project.projectId}-1`,
+          installmentType: 'Advance',
+          title: '50% Advance Payment Invoice',
+          amount: advanceAmount,
+          paidAmount: 0,
+          status: 'Unpaid',
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          notes: 'Required 50% advance payment to initiate site procurement & work execution.'
+        });
+      }
+    } else {
+      project.workflowStage = 'Quotation Rejected';
+      if (rejectionReason) project.clientFeedback = rejectionReason;
+    }
+
+    await project.save();
+
+    // Trigger Notification for Quotation Approved/Rejected -> Accountant & PM
+    if (status === 'Accepted') {
+      await createNotification({
+        recipientRole: "Accountant",
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Quotation Approved by Client",
+        message: `Client ${project.clientName} approved quotation #${targetQuotation.quotationNumber} (₹${(targetQuotation.totalAmount || 0).toLocaleString("en-IN")}) for "${project.projectName}". Ready for Advance Invoice!`,
+        type: "quotation_approved",
+      });
+      await createNotification({
+        recipientRole: "Project Manager",
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Quotation Approved by Client",
+        message: `Client ${project.clientName} approved quotation #${targetQuotation.quotationNumber} for project "${project.projectName}".`,
+        type: "quotation_approved",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: status === 'Accepted' 
+        ? `Quotation #${targetQuotation.quotationNumber} Accepted successfully! Sent to Accountant for Advance Invoice.`
+        : `Quotation #${targetQuotation.quotationNumber} Rejected. Feedback sent back to Project Manager.`,
+      data: project,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Error responding to quotation" });
+  }
+};
+
+// @desc    Get Admin Analytics & Statistics Summary
+// @route   GET /api/projects/admin-analytics
+// @access  Private/Admin
+exports.getAdminAnalytics = async (req, res) => {
+  try {
+    const Employee = require("../models/Employee");
+    const Client = require("../models/Client");
+
+    const totalEmployees = await Employee.countDocuments();
+    const totalClients = await Client.countDocuments();
+    
+    const totalProjects = await Project.countDocuments();
+    const activeProjects = await Project.countDocuments({
+      status: { $ne: "Completed" }
+    });
+    const completedProjects = await Project.countDocuments({
+      status: "Completed"
+    });
+
+    const allProjects = await Project.find({});
+
+    let totalRevenue = 0;
+    let totalBudget = 0;
+
+    allProjects.forEach((prj) => {
+      totalBudget += Number(prj.budget || 0);
+      if (prj.invoices && prj.invoices.length > 0) {
+        prj.invoices.forEach((inv) => {
+          if (inv.status === "Paid") {
+            totalRevenue += Number(inv.paidAmount || inv.amount || 0);
+          }
+        });
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalEmployees,
+        totalClients,
+        totalProjects,
+        activeProjects,
+        completedProjects,
+        totalRevenue,
+        totalBudget,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching admin analytics:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch admin analytics",
+      error: error.message,
+    });
   }
 };

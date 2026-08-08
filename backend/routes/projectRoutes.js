@@ -14,9 +14,12 @@ const {
   deleteDesign,
   addMaterial,
   deleteMaterial,
+  respondQuotation,
+  getAdminAnalytics,
 } = require("../controllers/projectController");
 const { protect } = require("../middleware/authMiddleware");
 
+router.get("/admin-analytics", protect, getAdminAnalytics);
 router.route("/").get(protect, getProjects).post(protect, createProject);
 
 router.post("/:id/designs", protect, uploadDesign);
@@ -26,6 +29,7 @@ router.delete("/:id/materials/:materialId", protect, deleteMaterial);
 router.post("/:id/invoices", protect, createInvoice);
 router.put("/:id/invoices/:invoiceId/pay", protect, payInvoice);
 router.put("/:id/approve-design", protect, approveDesign);
+router.put("/:id/respond-quotation", protect, respondQuotation);
 router.put("/:id/progress", protect, updateProgress);
 
 router

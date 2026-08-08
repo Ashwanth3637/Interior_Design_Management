@@ -297,14 +297,56 @@ exports.updateProgress = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    if (progressPercentage !== undefined) project.progressPercentage = Number(progressPercentage);
+    const newPct = progressPercentage !== undefined ? Number(progressPercentage) : project.progressPercentage;
+    project.progressPercentage = newPct;
     if (status) project.status = status;
+
+    // Automatic Milestone Triggers
+    if (newPct >= 60 && newPct < 90 && project.workflowStage !== "Second Installment Quotation Generated" && project.workflowStage !== "Second Installment Paid") {
+      project.workflowStage = "Site Progress 60%";
+    } else if (newPct >= 90) {
+      if (newPct === 100) {
+        project.status = "Completed";
+        project.workflowStage = "Project Completed";
+      } else {
+        project.workflowStage = "Site Progress 90%";
+      }
+
+      // Auto-generate Final Installment Invoice for Client (20% of total budget) if not already generated
+      project.invoices = project.invoices || [];
+      const hasFinalInvoice = project.invoices.some(
+        (inv) => inv.installmentType === "Final Installment" || inv.title.includes("Final")
+      );
+
+      if (!hasFinalInvoice) {
+        const totalBudget = project.budget || 500000;
+        const finalAmount = Math.round(totalBudget * 0.2); // 20% Final Payment Balance
+        const count = project.invoices.length + 1;
+
+        project.invoices.push({
+          invoiceNumber: `INV-${project.projectId}-${count}`,
+          title: "20% Final Payment & Handover Invoice",
+          installmentType: "Final Installment",
+          amount: finalAmount,
+          paidAmount: 0,
+          status: "Unpaid",
+          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+          notes: "Final payment balance due upon 90-100% site execution completion & client handover.",
+        });
+      }
+    }
 
     await project.save();
 
     res.status(200).json({
       success: true,
-      message: "Site progress updated successfully",
+      message: `Site progress updated to ${newPct}%. ${
+        newPct >= 90
+          ? "20% Final Payment Invoice issued to Client Dashboard!"
+          : newPct >= 60
+          ? "2nd Installment stage triggered for Project Manager!"
+          : ""
+      }`,
       data: project,
     });
   } catch (error) {

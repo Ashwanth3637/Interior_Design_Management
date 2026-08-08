@@ -1,6 +1,7 @@
 const Project = require("../models/project");
 const Employee = require("../models/Employee");
 const SiteWork = require("../models/SiteWork");
+const { sendQuotationEmail, sendInvoiceEmail } = require("../utils/emailService");
 
 // @desc    Get PM Dashboard Summary & Assigned Projects List (with Daily Logs, Materials, & Issues)
 // @route   GET /api/pm/dashboard
@@ -205,5 +206,152 @@ exports.handleSiteIssue = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || "Error updating site issue" });
+  }
+};
+
+// @desc    Generate Official Itemized Quotation (Project Manager)
+// @route   POST /api/pm/projects/:id/quotation
+// @access  Private/ProjectManager
+exports.generateQuotation = async (req, res) => {
+  try {
+    const {
+      materialCost = 0,
+      labourCost = 0,
+      designCharges = 0,
+      furnitureCost = 0,
+      electricalPlumbingCost = 0,
+      taxGst,
+      totalAmount,
+      validDays = 30
+    } = req.body;
+
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    const mat = Number(materialCost) || 0;
+    const lab = Number(labourCost) || 0;
+    const des = Number(designCharges) || 0;
+    const fur = Number(furnitureCost) || 0;
+    const ele = Number(electricalPlumbingCost) || 0;
+
+    const subTotal = mat + lab + des + fur + ele;
+    const finalTax = taxGst !== undefined && taxGst !== "" ? Number(taxGst) : Math.round(subTotal * 0.18);
+    const finalTotal = totalAmount !== undefined && totalAmount !== "" ? Number(totalAmount) : (subTotal + finalTax);
+
+    const qNum = `QTN-${project.projectId}-${(project.quotations?.length || 0) + 1}`;
+    const validUntilDate = new Date();
+    validUntilDate.setDate(validUntilDate.getDate() + (Number(validDays) || 30));
+
+    const isSecondQuote = project.progressPercentage >= 60 || project.workflowStage === "Site Progress 60%";
+
+    const newQuotation = {
+      quotationNumber: qNum,
+      materialCost: mat,
+      labourCost: lab,
+      designCharges: des,
+      furnitureCost: fur,
+      electricalPlumbingCost: ele,
+      taxGst: finalTax,
+      totalAmount: finalTotal,
+      validUntil: validUntilDate,
+      status: "Sent to Client",
+      installmentType: isSecondQuote ? "Second Installment" : "Initial Quotation",
+      generatedBy: req.user?.name || "Project Manager",
+      createdAt: new Date(),
+    };
+
+    project.quotations = project.quotations || [];
+    project.quotations.push(newQuotation);
+    project.budget = isSecondQuote ? project.budget : finalTotal;
+    project.workflowStage = isSecondQuote ? "Second Installment Quotation Generated" : "Quotation Generated";
+
+    // Auto-generate invoice corresponding to stage
+    const count = (project.invoices?.length || 0) + 1;
+    const invTitle = isSecondQuote ? "30% Second Installment Invoice" : "50% Advance Payment Invoice";
+    const invType = isSecondQuote ? "Second Installment" : "Advance Payment";
+    const invAmount = isSecondQuote ? Math.round(finalTotal * 0.3) : Math.round(finalTotal * 0.5);
+
+    project.invoices.push({
+      invoiceNumber: `INV-${project.projectId}-${count}`,
+      title: invTitle,
+      installmentType: invType,
+      amount: invAmount,
+      paidAmount: 0,
+      status: "Unpaid",
+      notes: isSecondQuote ? "Second installment payment for 60% site execution." : "Advance payment required to initiate procurement and site execution.",
+    });
+
+    await project.save();
+
+    // Dispatch Quotation & Invoice Emails to Client asynchronously
+    if (project.clientEmail) {
+      sendQuotationEmail({
+        clientEmail: project.clientEmail,
+        clientName: project.clientName,
+        projectName: project.projectName,
+        quotationNumber: qNum,
+        totalAmount: finalTotal,
+      }).catch(err => console.error("Quotation email error:", err));
+
+      sendInvoiceEmail({
+        clientEmail: project.clientEmail,
+        clientName: project.clientName,
+        projectName: project.projectName,
+        invoiceNumber: `INV-${project.projectId}-${count}`,
+        amount: invAmount,
+        installmentType: invType,
+      }).catch(err => console.error("Invoice email error:", err));
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Quotation ${qNum} generated for ₹${finalTotal.toLocaleString('en-IN')}! Workflow stage updated to '${project.workflowStage}'.`,
+      data: project,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Error generating quotation" });
+  }
+};
+
+// @desc    Generate 2nd Installment Invoice directly without asking for itemized costs again
+// @route   POST /api/pm/projects/:id/second-installment-invoice
+// @access  Private/ProjectManager
+exports.generateSecondInstallmentInvoice = async (req, res) => {
+  try {
+    const { amount, dueDate, remarks } = req.body;
+
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    const totalBudget = project.budget || 500000;
+    const invAmount = amount ? Number(amount) : Math.round(totalBudget * 0.3);
+    const count = (project.invoices?.length || 0) + 1;
+
+    project.invoices = project.invoices || [];
+    project.invoices.push({
+      invoiceNumber: `INV-${project.projectId}-${count}`,
+      title: "30% Second Installment Invoice",
+      installmentType: "Second Installment",
+      amount: invAmount,
+      paidAmount: 0,
+      status: "Unpaid",
+      dueDate: dueDate ? new Date(dueDate) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+      notes: remarks || "Second installment payment for 50-60% site execution completion.",
+    });
+
+    project.workflowStage = "Second Installment Quotation Generated";
+    await project.save();
+
+    res.status(201).json({
+      success: true,
+      message: `2nd Installment Invoice INV-${project.projectId}-${count} (₹${invAmount.toLocaleString('en-IN')}) generated and sent to Client!`,
+      data: project,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Error generating 2nd installment invoice" });
   }
 };

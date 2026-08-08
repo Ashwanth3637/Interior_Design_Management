@@ -1,6 +1,7 @@
 const Client = require('../models/Client');
 const Project = require('../models/project');
 const User = require('../models/User');
+const { sendWelcomeEmail } = require('../utils/emailService');
 
 // @desc    Get all clients (search, filter, pagination)
 // @route   GET /api/clients
@@ -140,8 +141,8 @@ exports.createClient = async (req, res) => {
       });
     }
 
-    // If an assigned designer or site engineer was selected, auto-create a project for this client assigned to them
-    if (assignedDesigner || siteEngineer) {
+    // If any staff role was assigned, auto-create a project for this client assigned to them
+    if (assignedDesigner || siteEngineer || req.body.projectManager || req.body.accountant) {
       const prjId = `PRJ-${Math.floor(1000 + Math.random() * 9000)}`;
       await Project.create({
         projectId: prjId,
@@ -155,10 +156,18 @@ exports.createClient = async (req, res) => {
         spentAmount: 0,
         assignedDesigner: assignedDesigner || 'Unassigned',
         siteEngineer: siteEngineer || 'Unassigned',
-        projectManager: siteEngineer || 'Unassigned',
+        projectManager: req.body.projectManager || siteEngineer || 'Unassigned',
+        accountant: req.body.accountant || 'Unassigned',
         status: 'In Progress',
       });
     }
+
+    // Dispatch Welcome Email asynchronously
+    sendWelcomeEmail({
+      clientEmail: email,
+      clientName: fullName,
+      password: clientPassword,
+    }).catch(err => console.error("Welcome email error:", err));
 
     res.status(201).json({
       success: true,
@@ -250,6 +259,58 @@ exports.getMyClientPortal = async (req, res) => {
       success: false,
       message: error.message || 'Error fetching client portal data'
     });
+  }
+};
+
+// @desc    Upload Site Photo by Client with Sq Feet & Tiles Estimator
+// @route   POST /api/clients/site-photos
+// @access  Private/Client
+exports.uploadSitePhoto = async (req, res) => {
+  try {
+    const { fileUrl, title, sqFeet, roomType, notes } = req.body;
+    if (!fileUrl) {
+      return res.status(400).json({ success: false, message: 'Image URL is required' });
+    }
+
+    const userEmail = req.user.email;
+    const userName = req.user.name;
+
+    const project = await Project.findOne({
+      $or: [
+        { clientEmail: userEmail },
+        { clientName: { $regex: userName, $options: 'i' } }
+      ]
+    });
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Active project not found for client' });
+    }
+
+    const sqFtNum = Number(sqFeet) || 150;
+    // Calculate tile requirement (standard 2x2 ft tile = 4 sq ft per tile, + 10% wastage buffer)
+    const tilesEst = Math.ceil((sqFtNum / 4) * 1.1);
+
+    const newPhoto = {
+      title: title || `${roomType || 'Room'} Site Photo`,
+      fileUrl,
+      sqFeetEstimate: sqFtNum,
+      tilesCountEstimate: tilesEst,
+      roomType: roomType || 'Living Room',
+      notes: notes || '',
+      uploadedAt: new Date()
+    };
+
+    project.sitePhotos = project.sitePhotos || [];
+    project.sitePhotos.unshift(newPhoto);
+    await project.save();
+
+    res.status(201).json({
+      success: true,
+      message: `Site photo uploaded! Estimated Sq Feet: ${sqFtNum} sq.ft | Tile Requirement: ~${tilesEst} Tiles (2x2 ft)`,
+      data: project.sitePhotos
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || 'Error uploading site photo' });
   }
 };
 

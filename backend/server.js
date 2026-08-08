@@ -22,6 +22,7 @@ app.use("/api/site-engineer", require("./routes/siteEngineerRoutes"));
 app.use("/api/pm", require("./routes/pmRoutes"));
 app.use("/api/accountant", require("./routes/accountantRoutes"));
 app.use("/api/sales", require("./routes/salesExecutiveRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 // Test Route
 app.get("/", (req, res) => {

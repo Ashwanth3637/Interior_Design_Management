@@ -4,7 +4,14 @@ const Employee = require('../models/Employee');
 
 const demoUsers = [
   {
-    name: 'Super Admin',
+    name: 'Master Super Admin',
+    email: 'superadmin@demo.com',
+    password: 'Password123!',
+    role: 'Super Admin',
+    phone: '+1 555-0099',
+  },
+  {
+    name: 'Admin User',
     email: 'admin@demo.com',
     password: 'Password123!',
     role: 'Admin',

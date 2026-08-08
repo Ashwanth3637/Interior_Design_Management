@@ -1,5 +1,7 @@
 const Project = require("../models/project");
 const Expense = require("../models/Expense");
+const { createNotification } = require("../utils/notificationHelper");
+const { sendInvoiceEmail, sendPaymentReceiptEmail } = require("../utils/emailService");
 
 // @desc    Get Accountant Dashboard Summary, Invoices, Expenses & Financial Reports
 // @route   GET /api/accountant/dashboard
@@ -134,6 +136,14 @@ exports.createInvoice = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
+    const type = installmentType || "Advance Payment";
+    if (type.includes("Advance") && !project.quotationApproved) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot issue Advance Payment Invoice! The client must first approve the official quotation."
+      });
+    }
+
     const newInvNumber = invoiceNumber || `INV-${Math.floor(10000 + Math.random() * 90000)}`;
 
     const newInvoice = {
@@ -150,6 +160,19 @@ exports.createInvoice = async (req, res) => {
 
     project.invoices.push(newInvoice);
     await project.save();
+
+    // Dispatch Invoice Email to Client
+    if (project.clientEmail) {
+      sendInvoiceEmail({
+        clientEmail: project.clientEmail,
+        clientName: project.clientName,
+        projectName: project.projectName,
+        invoiceNumber: newInvNumber,
+        amount: newInvoice.amount,
+        dueDate: newInvoice.dueDate,
+        installmentType: newInvoice.installmentType,
+      }).catch(err => console.error("Invoice email error:", err));
+    }
 
     res.status(201).json({
       success: true,
@@ -198,6 +221,42 @@ exports.updatePaymentInstallment = async (req, res) => {
     }
 
     await project.save();
+
+    if (invoice.status === "Paid") {
+      if (project.clientEmail) {
+        sendPaymentReceiptEmail({
+          clientEmail: project.clientEmail,
+          clientName: project.clientName,
+          projectName: project.projectName,
+          invoiceNumber: invoice.invoiceNumber,
+          paidAmount: invoice.paidAmount || invoice.amount,
+        }).catch(err => console.error("Payment receipt email error:", err));
+      }
+
+      if (invoice.installmentType === "Advance Payment" || invoice.title?.includes("Advance")) {
+        await createNotification({
+        recipientRole: "Site Engineer",
+        recipientName: project.siteEngineer,
+        senderName: req.user?.name || "Accountant",
+        senderRole: req.user?.role || "Accountant",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Advance Payment Received",
+        message: `Advance payment of ₹${(invoice.paidAmount || invoice.amount || 0).toLocaleString("en-IN")} received for project "${project.projectName}". Site execution can now begin!`,
+        type: "payment_received",
+      });
+      await createNotification({
+        recipientRole: "Project Manager",
+        senderName: req.user?.name || "Accountant",
+        senderRole: req.user?.role || "Accountant",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Advance Payment Received",
+        message: `Advance payment of ₹${(invoice.paidAmount || invoice.amount || 0).toLocaleString("en-IN")} received for project "${project.projectName}".`,
+        type: "payment_received",
+      });
+    }
+  }
 
     res.status(200).json({
       success: true,

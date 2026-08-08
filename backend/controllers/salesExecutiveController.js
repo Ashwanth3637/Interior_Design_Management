@@ -2,6 +2,7 @@ const Project = require("../models/project");
 const Client = require("../models/Client");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
+const { sendWelcomeEmail } = require("../utils/emailService");
 
 // @desc    Get Sales Executive Dashboard Summary & Registered Leads
 // @route   GET /api/sales/dashboard
@@ -90,11 +91,13 @@ exports.registerClientLead = async (req, res) => {
     // Create Client Record
     let clientRecord = await Client.findOne({ email: clientEmail.toLowerCase().trim() });
     if (!clientRecord) {
+      const generatedClientId = `CLT-${Math.floor(1000 + Math.random() * 9000)}`;
       clientRecord = await Client.create({
+        clientId: generatedClientId,
         fullName: clientName,
         email: clientEmail.toLowerCase().trim(),
         password: clientPass,
-        phone: clientPhone || "",
+        phone: clientPhone || "N/A",
         address: location || "",
         projectType: projectType || "Residential",
         assignedDesigner: assignedDesigner || "Unassigned",
@@ -102,7 +105,7 @@ exports.registerClientLead = async (req, res) => {
       });
     }
 
-    // Create Initial Project at Stage 1: Client Registration -> Project Setup
+    // Create Initial Project at Stage: Design Upload
     const prjId = `PRJ-${Math.floor(1000 + Math.random() * 9000)}`;
     const project = await Project.create({
       projectId: prjId,
@@ -116,9 +119,16 @@ exports.registerClientLead = async (req, res) => {
       salesExecutive: req.user?.name || "Sales Executive",
       assignedDesigner: assignedDesigner || "Unassigned",
       projectManager: projectManager || "Project Manager",
-      workflowStage: "Project Setup",
-      status: "Planning",
+      workflowStage: "Design Upload",
+      status: "In Progress",
     });
+
+    // Dispatch Welcome Email to registered client lead
+    sendWelcomeEmail({
+      clientEmail: clientEmail.toLowerCase().trim(),
+      clientName: clientName,
+      password: clientPass,
+    }).catch(err => console.error("Welcome email error:", err));
 
     res.status(201).json({
       success: true,

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin, ArrowRight, ShieldCheck, Palette, Sparkles, Star, Award, Layers, Clock, MessageCircle, Home } from 'lucide-react';
+import livingRoomImg from '../assets/modern_living_room_1786169766310.png';
+import kitchenImg from '../assets/luxury_kitchen_1786169786299.png';
+import bedroomImg from '../assets/master_bedroom_1786169805566.png';
+import officeImg from '../assets/minimalist_office_1786169869898.png';
 
 const LandingPage = () => {
   const [activeNav, setActiveNav] = useState('home');
@@ -138,20 +142,13 @@ const LandingPage = () => {
         </div>
 
         {/* Hero Main Showcase Image with Zoom Container */}
-        <div className="img-zoom-container" style={{ borderRadius: '20px', boxShadow: '0 20px 30px -10px rgba(0,0,0,0.15)', position: 'relative' }}>
+        <div className="img-zoom-container" style={{ borderRadius: '20px', border: '2px solid #000000', boxShadow: '0 20px 30px -10px rgba(0,0,0,0.15)', position: 'relative', backgroundColor: '#ffffff', overflow: 'hidden' }}>
           <img 
-            src="/hero_living_room_1786022741605.png" 
-            alt="Living Room Design" 
+            src="/living_room_line_art_sketch.png" 
+            alt="Living Room 2D Line Art Design" 
             className="img-zoom"
-            style={{ width: '100%', height: '480px', objectFit: 'cover', borderRadius: '20px' }} 
+            style={{ width: '100%', height: '480px', objectFit: 'cover', borderRadius: '18px' }} 
           />
-          <div style={{ position: 'absolute', bottom: '20px', left: '20px', backgroundColor: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(8px)', padding: '1rem 1.25rem', borderRadius: '12px', boxShadow: '0 10px 20px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Award size={28} color="#2563eb" />
-            <div>
-              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700', color: '#0f172a' }}>Quality Execution</h4>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>Custom Living Room Interior</p>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -198,10 +195,10 @@ const LandingPage = () => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
-          {/* Card 1: Living Room */}
+          {/* Card 1: Living Room (3D Render) */}
           <div className="hover-card" style={{ backgroundColor: '#ffffff', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }}>
             <div className="img-zoom-container">
-              <img src="/hero_living_room_1786022741605.png" alt="Living Room Design" className="img-zoom" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+              <img src={livingRoomImg} alt="Modern Living Room 3D Render" className="img-zoom" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
             </div>
             <div style={{ padding: '1.25rem' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#2563eb', backgroundColor: '#eff6ff', padding: '0.2rem 0.6rem', borderRadius: '9999px' }}>Living Room</span>
@@ -213,7 +210,7 @@ const LandingPage = () => {
           {/* Card 2: Kitchen */}
           <div className="hover-card" style={{ backgroundColor: '#ffffff', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }}>
             <div className="img-zoom-container">
-              <img src="/modular_kitchen_1786022758382.png" alt="Modular Kitchen" className="img-zoom" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+              <img src={kitchenImg} alt="Modular Kitchen" className="img-zoom" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
             </div>
             <div style={{ padding: '1.25rem' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#2563eb', backgroundColor: '#eff6ff', padding: '0.2rem 0.6rem', borderRadius: '9999px' }}>Modular Kitchen</span>
@@ -225,7 +222,7 @@ const LandingPage = () => {
           {/* Card 3: Bedroom */}
           <div className="hover-card" style={{ backgroundColor: '#ffffff', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }}>
             <div className="img-zoom-container">
-              <img src="/luxury_bedroom_1786022773715.png" alt="Master Bedroom" className="img-zoom" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+              <img src={bedroomImg} alt="Master Bedroom" className="img-zoom" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
             </div>
             <div style={{ padding: '1.25rem' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#2563eb', backgroundColor: '#eff6ff', padding: '0.2rem 0.6rem', borderRadius: '9999px' }}>Master Bedroom</span>
@@ -234,10 +231,10 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Card 4: Commercial Office Render (Consistent Style) */}
+          {/* Card 4: Commercial Office Render */}
           <div className="hover-card" style={{ backgroundColor: '#ffffff', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }}>
             <div className="img-zoom-container">
-              <img src="/commercial_office_render_1786023551364.png" alt="Commercial Office" className="img-zoom" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+              <img src={officeImg} alt="Executive Office" className="img-zoom" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
             </div>
             <div style={{ padding: '1.25rem' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#2563eb', backgroundColor: '#eff6ff', padding: '0.2rem 0.6rem', borderRadius: '9999px' }}>Commercial Workspace</span>

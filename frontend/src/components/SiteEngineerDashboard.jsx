@@ -22,6 +22,7 @@ import {
 import { Link } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import WorkflowStepper from './WorkflowStepper';
+import { designImages } from '../assets/images';
 
 const SiteEngineerDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -39,7 +40,7 @@ const SiteEngineerDashboard = () => {
   // Forms State
   const [progressForm, setProgressForm] = useState({ progressPercentage: 0, currentStage: 'In Progress', status: 'In Progress' });
   const [dailyLogForm, setDailyLogForm] = useState({ workCompleted: '', workersPresent: 1, remarks: '', date: new Date().toISOString().split('T')[0] });
-  const [photoForm, setPhotoForm] = useState({ imageUrl: '', category: 'During Work', title: '' });
+  const [photoForm, setPhotoForm] = useState({ imageUrl: designImages.siteProgress, category: 'During Work', title: 'Site Inspection Framing & Electrical Setup' });
   const [materialForm, setMaterialForm] = useState({ materialName: '', quantityUsed: 1, remainingQuantity: 0 });
   const [issueForm, setIssueForm] = useState({ issueType: 'Delay', description: '', severity: 'Medium' });
 

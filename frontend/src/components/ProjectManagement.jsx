@@ -19,6 +19,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { designImages } from '../assets/images';
 
 const ProjectManagement = () => {
   const { user } = useContext(AuthContext);
@@ -531,9 +532,26 @@ const ProjectManagement = () => {
                     <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#2563eb', backgroundColor: '#eff6ff', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
                       {prj.projectId}
                     </span>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '600', padding: '0.25rem 0.6rem', borderRadius: '9999px', backgroundColor: badge.bg, border: `1px solid ${badge.border}`, color: badge.text }}>
-                      {prj.status}
-                    </span>
+                  </div>
+                  <div style={{ position: 'relative', width: '100%', height: '140px', borderRadius: '8px', overflow: 'hidden', marginBottom: '0.85rem' }}>
+                    <img 
+                      src={
+                        prj.projectType === 'Modular Kitchen' 
+                          ? designImages.kitchen 
+                          : prj.projectType === 'Commercial'
+                          ? designImages.office
+                          : prj.projectName?.toLowerCase().includes('bedroom')
+                          ? designImages.bedroom
+                          : designImages.livingRoom
+                      } 
+                      alt={prj.projectName} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
+                    <div style={{ position: 'absolute', top: '8px', right: '8px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '600', padding: '0.25rem 0.6rem', borderRadius: '9999px', backgroundColor: badge.bg, border: `1px solid ${badge.border}`, color: badge.text, backdropFilter: 'blur(4px)' }}>
+                        {prj.status}
+                      </span>
+                    </div>
                   </div>
 
                   <h3 style={{ margin: '0 0 0.4rem 0', color: '#0f172a', fontSize: '1.15rem', fontWeight: '700' }}>

@@ -4,6 +4,7 @@ const {
   getClients,
   getClientById,
   getMyClientPortal,
+  uploadSitePhoto,
   createClient,
   updateClient,
   deleteClient,
@@ -13,6 +14,7 @@ const { protect } = require('../middleware/authMiddleware');
 router.route('/').get(protect, getClients).post(protect, createClient);
 
 router.get('/my-portal', protect, getMyClientPortal);
+router.post('/site-photos', protect, uploadSitePhoto);
 
 router
   .route('/:id')

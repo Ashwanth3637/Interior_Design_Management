@@ -6,6 +6,8 @@ const {
   updatePMProject,
   approveProgress,
   handleSiteIssue,
+  generateQuotation,
+  generateSecondInstallmentInvoice,
 } = require("../controllers/pmController");
 
 // All routes protected by JWT auth
@@ -13,6 +15,8 @@ router.use(protect);
 
 router.get("/dashboard", getPMDashboard);
 router.put("/projects/:id", updatePMProject);
+router.post("/projects/:id/quotation", generateQuotation);
+router.post("/projects/:id/second-installment-invoice", generateSecondInstallmentInvoice);
 router.put("/projects/:id/approve-progress", approveProgress);
 router.put("/issues/:projectId/:issueId", handleSiteIssue);
 

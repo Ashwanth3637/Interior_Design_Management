@@ -206,7 +206,7 @@ const DesignerStudio = () => {
     try {
       setSavingProject(true);
       setError('');
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}`, {
         method: 'PUT',
         headers: {
@@ -220,7 +220,7 @@ const DesignerStudio = () => {
         setSuccessMsg('Project specifications updated successfully!');
         setSelectedProject(data.data);
         setIsStudioModalOpen(false);
-        fetchAssignedProjects();
+        fetchDesignerData();
       } else {
         setError(data.message || 'Failed to update project specifications');
       }
@@ -242,7 +242,7 @@ const DesignerStudio = () => {
     try {
       setUploading(true);
       setError('');
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/designs`, {
         method: 'POST',
         headers: {
@@ -262,7 +262,7 @@ const DesignerStudio = () => {
         setDesignTitle('');
         setDesignFileUrl('');
         setSelectedProject(data.data);
-        fetchAssignedProjects();
+        fetchDesignerData();
       } else {
         setError(data.message || 'Failed to upload design concept');
       }
@@ -284,7 +284,7 @@ const DesignerStudio = () => {
     try {
       setAddingMaterial(true);
       setError('');
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/materials`, {
         method: 'POST',
         headers: {
@@ -308,7 +308,7 @@ const DesignerStudio = () => {
         setMatQty(1);
         setMatEstPrice('');
         setSelectedProject(data.data);
-        fetchAssignedProjects();
+        fetchDesignerData();
       } else {
         setError(data.message || 'Failed to add material spec');
       }
@@ -324,7 +324,7 @@ const DesignerStudio = () => {
     if (!selectedProject || !designId) return;
     if (!window.confirm('Are you sure you want to delete this design concept?')) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/designs/${designId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -333,7 +333,7 @@ const DesignerStudio = () => {
       if (res.ok && data.success) {
         setSuccessMsg('Design concept removed successfully!');
         setSelectedProject(data.data);
-        fetchAssignedProjects();
+        fetchDesignerData();
       } else {
         setError(data.message || 'Failed to remove design');
       }
@@ -347,7 +347,7 @@ const DesignerStudio = () => {
     if (!selectedProject || !matId) return;
     if (!window.confirm('Remove this material item from catalogue?')) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/materials/${matId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -356,7 +356,7 @@ const DesignerStudio = () => {
       if (res.ok && data.success) {
         setSuccessMsg('Material item removed successfully!');
         setSelectedProject(data.data);
-        fetchAssignedProjects();
+        fetchDesignerData();
       } else {
         setError(data.message || 'Failed to delete material');
       }
@@ -371,7 +371,7 @@ const DesignerStudio = () => {
     const isRevision = selectedProject.designApprovalStatus === 'Revision Requested' || selectedProject.workflowStage === 'Revision Requested';
     const statusPayload = isRevision ? 'Revision Submitted' : 'Pending Review';
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/approve-design`, {
         method: 'PUT',
         headers: {
@@ -384,7 +384,7 @@ const DesignerStudio = () => {
       if (res.ok && data.success) {
         setSuccessMsg(isRevision ? `Revision Submitted successfully! Design Version updated to v${data.data.designVersion || 2}.` : `Designs submitted for Client Review! Status updated to 'Pending Review'.`);
         setSelectedProject(data.data);
-        fetchAssignedProjects();
+        fetchDesignerData();
       } else {
         setError(data.message || 'Failed to submit designs for review');
       }
@@ -397,7 +397,7 @@ const DesignerStudio = () => {
   const handleRemoveDesigner = async (projectId) => {
     if (!window.confirm('Are you sure you want to remove the assigned designer from this project?')) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/projects/${projectId}`, {
         method: 'PUT',
         headers: {
@@ -410,7 +410,7 @@ const DesignerStudio = () => {
       if (res.ok && data.success) {
         setSuccessMsg('Designer unassigned from project successfully');
         if (selectedProject?._id === projectId) setIsStudioModalOpen(false);
-        fetchAssignedProjects();
+        fetchDesignerData();
       } else {
         setError(data.message || 'Failed to unassign designer');
       }
@@ -423,7 +423,7 @@ const DesignerStudio = () => {
   const handleDeleteProject = async (projectId) => {
     if (!window.confirm('Are you sure you want to completely delete this project?')) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`http://localhost:5001/api/projects/${projectId}`, {
         method: 'DELETE',
         headers: {
@@ -434,7 +434,7 @@ const DesignerStudio = () => {
       if (res.ok && data.success) {
         setSuccessMsg('Project removed successfully');
         if (selectedProject?._id === projectId) setIsStudioModalOpen(false);
-        fetchAssignedProjects();
+        fetchDesignerData();
       } else {
         setError(data.message || 'Failed to delete project');
       }
@@ -540,6 +540,12 @@ const DesignerStudio = () => {
               style={{ padding: '0.55rem 1rem', borderRadius: '10px', border: 'none', backgroundColor: activeTab === 'assigned' ? '#2563eb' : '#f1f5f9', color: activeTab === 'assigned' ? '#ffffff' : '#64748b', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
               <FolderOpen size={16} /> Assigned ({projects.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('revisions')}
+              style={{ padding: '0.55rem 1rem', borderRadius: '10px', border: 'none', backgroundColor: activeTab === 'revisions' ? '#eab308' : '#f1f5f9', color: activeTab === 'revisions' ? '#ffffff' : '#64748b', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <RotateCcw size={16} /> Request Revisions ({projects.filter(p => p.designApprovalStatus === 'Revision Requested' || p.workflowStage === 'Revision Requested' || p.designApprovalStatus === 'Changes Requested').length})
             </button>
             <button
               onClick={() => setActiveTab('clientPhotos')}
@@ -676,7 +682,7 @@ const DesignerStudio = () => {
               <RotateCcw size={20} color="#ca8a04" /> Projects Requiring Changes & Client Revision Feedback
             </div>
 
-            {filteredProjects.filter(p => p.designApprovalStatus === 'Revision Requested' || p.workflowStage === 'Revision Requested').length === 0 ? (
+            {filteredProjects.filter(p => p.designApprovalStatus === 'Revision Requested' || p.workflowStage === 'Revision Requested' || p.designApprovalStatus === 'Changes Requested').length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
                 <CheckCircle size={40} color="#16a34a" style={{ marginBottom: '0.75rem' }} />
                 <h4 style={{ margin: '0 0 0.25rem 0', color: '#0f172a' }}>No Pending Revision Requests</h4>
@@ -696,13 +702,13 @@ const DesignerStudio = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredProjects.filter(p => p.designApprovalStatus === 'Revision Requested' || p.workflowStage === 'Revision Requested').map((p) => (
+                    {filteredProjects.filter(p => p.designApprovalStatus === 'Revision Requested' || p.workflowStage === 'Revision Requested' || p.designApprovalStatus === 'Changes Requested').map((p) => (
                       <tr key={p._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '1rem 1.25rem', fontWeight: '700', color: '#0f172a' }}>{p.projectName}</td>
                         <td style={{ padding: '1rem 1.25rem', color: '#334155' }}>{p.clientName}</td>
                         <td style={{ padding: '1rem 1.25rem' }}>
                           <span style={{ backgroundColor: '#fef3c7', color: '#d97706', padding: '0.25rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700' }}>
-                            Revision Requested
+                            {p.designApprovalStatus || 'Revision Requested'}
                           </span>
                         </td>
                         <td style={{ padding: '1rem 1.25rem', color: '#0f172a', fontWeight: '600', maxWidth: '320px' }}>

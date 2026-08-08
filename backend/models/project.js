@@ -11,6 +11,21 @@ const designSchema = new mongoose.Schema({
     uploadedAt: { type: Date, default: Date.now },
 });
 
+const quotationSchema = new mongoose.Schema({
+    quotationNumber: { type: String, required: true },
+    materialCost: { type: Number, default: 0 },
+    labourCost: { type: Number, default: 0 },
+    designCharges: { type: Number, default: 0 },
+    furnitureCost: { type: Number, default: 0 },
+    electricalPlumbingCost: { type: Number, default: 0 },
+    taxGst: { type: Number, default: 0 },
+    totalAmount: { type: Number, required: true },
+    validUntil: { type: Date },
+    status: { type: String, enum: ["Draft", "Sent to Client", "Accepted", "Rejected"], default: "Sent to Client" },
+    generatedBy: { type: String, default: "Project Manager" },
+    createdAt: { type: Date, default: Date.now },
+});
+
 const invoiceSchema = new mongoose.Schema({
     invoiceNumber: { type: String, required: true },
     title: { type: String, default: "Client Invoice" },
@@ -132,18 +147,35 @@ const projectSchema = new mongoose.Schema(
         workflowStage: {
             type: String,
             enum: [
-                "Client Registration",
-                "Project Setup",
+                "Lead Registered",
+                "Client Account Created",
+                "Project Created",
+                "Designer Assigned",
                 "Design Upload",
                 "Client Review",
-                "PM Design Sign-off",
-                "Quotation & Advance Payment",
-                "Site Execution",
+                "Revision Requested",
+                "Design Approved",
+                "Quotation Generated",
+                "Quotation Approved",
+                "Quotation Rejected",
+                "Advance Payment Received",
+                "PM Approval",
+                "Site Engineer Assigned",
+                "Material Procurement",
+                "Execution Started",
+                "Site Progress 60%",
+                "Second Installment Quotation Generated",
+                "Second Installment Paid",
+                "Site Progress 90%",
+                "Final Installment Pending",
+                "Daily Progress Updates",
                 "Stage Payments",
-                "Completion & Final Inspection",
-                "Final Payment & Handover"
+                "Quality Inspection",
+                "Client Handover",
+                "Project Completed",
+                "Project Closed"
             ],
-            default: "Design Upload",
+            default: "Designer Assigned",
         },
         advancePaymentPaid: {
             type: Boolean,
@@ -165,13 +197,27 @@ const projectSchema = new mongoose.Schema(
         },
         designApprovalStatus: {
             type: String,
-            enum: ["Pending Review", "Approved", "Changes Requested"],
+            enum: ["Pending Review", "Approved", "Changes Requested", "Revision Requested", "Revision Submitted"],
             default: "Pending Review",
+        },
+        designVersion: {
+            type: Number,
+            default: 1,
         },
         clientFeedback: {
             type: String,
             default: "",
         },
+        sitePhotos: [{
+            title: { type: String, default: "Client Site Photo" },
+            fileUrl: { type: String, required: true },
+            sqFeetEstimate: { type: Number, default: 0 },
+            tilesCountEstimate: { type: Number, default: 0 },
+            roomType: { type: String, default: "Living Room" },
+            notes: { type: String, default: "" },
+            uploadedAt: { type: Date, default: Date.now }
+        }],
+        quotations: [quotationSchema],
         designs: [designSchema],
         invoices: [invoiceSchema],
         timeline: [timelineSchema],
