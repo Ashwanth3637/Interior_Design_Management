@@ -168,6 +168,8 @@ const EmployeeManagement = () => {
       salary: 50000,
       status: 'Active',
       experience: 2,
+      joiningDate: new Date().toISOString().substring(0, 10),
+      emergencyContact: '',
       address: ''
     });
     setIsModalOpen(true);
@@ -189,6 +191,8 @@ const EmployeeManagement = () => {
       salary: emp.salary,
       status: emp.status,
       experience: emp.experience || 0,
+      joiningDate: emp.joiningDate ? emp.joiningDate.substring(0, 10) : '',
+      emergencyContact: emp.emergencyContact || '',
       address: emp.address || ''
     });
     setIsModalOpen(true);
@@ -276,8 +280,8 @@ const EmployeeManagement = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <img 
-            src="/team_collaboration_1786024297074.png" 
-            alt="Employee Staff Team" 
+            src="/hero_living_room_1786022741605.png" 
+            alt="3D Interior Design Render" 
             style={{ width: '130px', height: '80px', objectFit: 'cover', borderRadius: '12px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }} 
           />
           <button
@@ -565,17 +569,37 @@ const EmployeeManagement = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', color: '#334155', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.35rem' }}>Gender</label>
+                <label style={labelStyle}>Gender</label>
                 <select
                   name="gender"
                   value={formData.gender}
                   onChange={handleInputChange}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
+                  style={inputStyle}
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
                 </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Experience (Years)</label>
+                <input type="number" name="experience" min="0" value={formData.experience} onChange={handleInputChange} style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Date of Joining</label>
+                <input type="date" name="joiningDate" value={formData.joiningDate ? formData.joiningDate.substring(0,10) : ''} onChange={handleInputChange} style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Emergency Contact Phone</label>
+                <input type="text" name="emergencyContact" placeholder="e.g. +91 9876543210" value={formData.emergencyContact || ''} onChange={handleInputChange} style={inputStyle} />
+              </div>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={labelStyle}>Residential Address</label>
+                <textarea name="address" rows="2" placeholder="Full residential address..." value={formData.address || ''} onChange={handleInputChange} style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical' }} />
               </div>
 
               <div style={{ gridColumn: 'span 2', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>

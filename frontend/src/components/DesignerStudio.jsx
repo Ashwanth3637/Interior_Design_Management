@@ -87,7 +87,7 @@ const DesignerStudio = () => {
 
   // Upload Design Form State
   const [designTitle, setDesignTitle] = useState('');
-  const [designType, setDesignType] = useState('2D Floor Plan');
+  const [designType, setDesignType] = useState('3D Render');
   const [designFileUrl, setDesignFileUrl] = useState('');
   const [uploading, setUploading] = useState(false);
 
@@ -553,6 +553,12 @@ const DesignerStudio = () => {
             >
               <ImageIcon size={16} /> Client Site Photos ({projects.reduce((acc, p) => acc + (p.sitePhotos?.length || 0), 0)})
             </button>
+            <button
+              onClick={() => setActiveTab('clientMessages')}
+              style={{ padding: '0.55rem 1rem', borderRadius: '10px', border: 'none', backgroundColor: activeTab === 'clientMessages' ? '#2563eb' : '#f1f5f9', color: activeTab === 'clientMessages' ? '#ffffff' : '#64748b', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <MessageSquare size={16} /> Client Messages ({projects.reduce((acc, p) => acc + (p.projectMessages?.length || 0), 0)})
+            </button>
           </div>
 
           {/* Search & Filters Toolbar */}
@@ -615,9 +621,11 @@ const DesignerStudio = () => {
             <h3 style={{ margin: '0 0 0.5rem 0', color: '#0f172a' }}>No Matching Projects Found</h3>
             <p style={{ color: '#64748b', margin: 0 }}>Try adjusting your search criteria or clear your active filters.</p>
           </div>
-        ) : activeTab === 'clientPhotos' ? (
-          /* CLIENT SITE PHOTOS DEDICATED VIEW */
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', padding: '1.5rem' }}>
+        ) : (
+          <div>
+            {/* CLIENT SITE PHOTOS DEDICATED VIEW */}
+            {activeTab === 'clientPhotos' && (
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', padding: '1.5rem' }}>
             <div style={{ paddingBottom: '1rem', borderBottom: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: '0 0 0.25rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <ImageIcon size={22} color="#16a34a" /> Client Site Photos & Tile Estimator Directory
@@ -675,7 +683,10 @@ const DesignerStudio = () => {
               </div>
             )}
           </div>
-        ) : activeTab === 'revisions' ? (
+        )}
+
+        {/* REVISION REQUESTS PAGE */}
+        {activeTab === 'revisions' && (
           /* REVISION REQUESTS PAGE */
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
             <div style={{ padding: '1.25rem', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fefce8', fontWeight: '700', color: '#854d0e', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -733,7 +744,10 @@ const DesignerStudio = () => {
               </div>
             )}
           </div>
-        ) : (
+        )}
+
+        {/* ASSIGNED PROJECTS GRID TAB */}
+        {activeTab === 'assigned' && (
           <div>
             {/* Projects Grid */}
             <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', fontSize: '1.1rem', fontWeight: '700' }}>
@@ -907,6 +921,99 @@ const DesignerStudio = () => {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* CLIENT MESSAGES & CHAT TAB */}
+        {activeTab === 'clientMessages' && (
+          <div style={{ marginTop: '1rem' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <MessageSquare size={22} color="#2563eb" /> Direct Client Communication & Doubts
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+              {projects.map((prj) => (
+                <div key={prj._id} style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '1rem 1.25rem', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#2563eb' }}>{prj.projectId}</span>
+                      <h4 style={{ margin: 0, color: '#0f172a', fontSize: '1rem', fontWeight: '800' }}>{prj.projectName}</h4>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Client: <strong>{prj.clientName}</strong></div>
+                    </div>
+                    <span style={{ backgroundColor: '#eff6ff', color: '#2563eb', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700' }}>
+                      {prj.projectMessages?.length || 0} msgs
+                    </span>
+                  </div>
+
+                  {/* Messages Feed */}
+                  <div style={{ padding: '1rem', height: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: '#fafafa' }}>
+                    {(!prj.projectMessages || prj.projectMessages.length === 0) ? (
+                      <div style={{ textAlign: 'center', margin: 'auto', color: '#94a3b8', fontSize: '0.85rem' }}>
+                        No messages from client yet.
+                      </div>
+                    ) : (
+                      prj.projectMessages.map((m, idx) => {
+                        const isDesigner = m.senderRole === 'Designer' || m.senderRole === 'Interior Designer';
+                        return (
+                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isDesigner ? 'flex-end' : 'flex-start' }}>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', marginBottom: '0.15rem' }}>
+                              {m.senderName} ({m.senderRole})
+                            </div>
+                            <div style={{
+                              maxWidth: '85%',
+                              padding: '0.55rem 0.85rem',
+                              borderRadius: isDesigner ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                              backgroundColor: isDesigner ? '#2563eb' : '#ffffff',
+                              color: isDesigner ? '#ffffff' : '#0f172a',
+                              border: isDesigner ? 'none' : '1px solid #cbd5e1',
+                              fontSize: '0.85rem'
+                            }}>
+                              {m.message}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Reply Input */}
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const msgText = e.target.replyMsg.value;
+                      if (!msgText || !msgText.trim()) return;
+                      try {
+                        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+                        const res = await fetch(`http://localhost:5001/api/projects/${prj._id}/messages`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ message: msgText })
+                        });
+                        if (res.ok) {
+                          e.target.reset();
+                          fetchDesignerData();
+                        }
+                      } catch (err) { alert('Error replying to message'); }
+                    }}
+                    style={{ padding: '0.75rem 1rem', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', backgroundColor: '#ffffff' }}
+                  >
+                    <input
+                      type="text"
+                      name="replyMsg"
+                      placeholder={`Reply to ${prj.clientName}...`}
+                      style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }}
+                    />
+                    <button
+                      type="submit"
+                      style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.5rem 0.9rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                      Send 🚀
+                    </button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
           </div>
         )}
       </div>

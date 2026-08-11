@@ -533,6 +533,12 @@ const ClientPortal = () => {
               <ImageIcon size={16} /> Upload Site Photos ({project.sitePhotos?.length || 0})
             </button>
             <button
+              onClick={() => setActiveTab('chat')}
+              style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: activeTab === 'chat' ? 'none' : '1px solid #cbd5e1', backgroundColor: activeTab === 'chat' ? '#2563eb' : '#ffffff', color: activeTab === 'chat' ? '#ffffff' : '#475569', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <MessageSquare size={16} /> Designer Chat ({project.projectMessages?.length || 0})
+            </button>
+            <button
               onClick={() => setActiveTab('timeline')}
               style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: activeTab === 'timeline' ? 'none' : '1px solid #cbd5e1', backgroundColor: activeTab === 'timeline' ? '#2563eb' : '#ffffff', color: activeTab === 'timeline' ? '#ffffff' : '#475569', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
@@ -607,7 +613,7 @@ const ClientPortal = () => {
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 260px))', gap: '1.25rem' }}>
-                    {project.designs.map((ds, idx) => (
+                    {project.designs.filter(ds => !ds.designType || ds.designType === '3D Render').map((ds, idx) => (
                       <div key={ds._id || idx} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#ffffff', boxShadow: '0 2px 6px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                         <div>
                           {/* Image Hover Zoom & Overlay */}
@@ -652,9 +658,9 @@ const ClientPortal = () => {
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
                               onClick={() => setPreviewImage(ds)}
-                              style={{ flex: 1, backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.5rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                              style={{ flex: 1, backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.55rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
                             >
-                              <Eye size={14} /> Preview
+                              <Eye size={15} /> Preview HD 3D Render
                             </button>
                             <button
                               onClick={() => handleRequestConceptRevision(ds.title)}
@@ -1061,6 +1067,92 @@ const ClientPortal = () => {
               </div>
             )}
 
+            {/* 6. DESIGNER LIVE CHAT TAB */}
+            {activeTab === 'chat' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 0.25rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <MessageSquare size={22} color="#2563eb" /> Direct Designer Communication
+                    </h3>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
+                      Ask questions, clarify doubts, or share design ideas directly with your interior designer <strong>({project.assignedDesigner || 'Designer'})</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                  {/* Chat Messages Feed */}
+                  <div style={{ padding: '1.5rem', backgroundColor: '#f8fafc', height: '360px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {(!project.projectMessages || project.projectMessages.length === 0) ? (
+                      <div style={{ textAlign: 'center', margin: 'auto', color: '#94a3b8', fontSize: '0.9rem' }}>
+                        💬 No messages sent yet. Start the conversation with your designer below!
+                      </div>
+                    ) : (
+                      project.projectMessages.map((msg, i) => {
+                        const isClient = msg.senderRole === 'Client';
+                        return (
+                          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: isClient ? 'flex-end' : 'flex-start' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', marginBottom: '0.2rem' }}>
+                              {msg.senderName} ({msg.senderRole}) • {new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                            <div style={{
+                              maxWidth: '75%',
+                              padding: '0.75rem 1rem',
+                              borderRadius: isClient ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
+                              backgroundColor: isClient ? '#2563eb' : '#ffffff',
+                              color: isClient ? '#ffffff' : '#0f172a',
+                              border: isClient ? 'none' : '1px solid #cbd5e1',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
+                              fontSize: '0.9rem',
+                              lineHeight: '1.4'
+                            }}>
+                              {msg.message}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Send Message Box */}
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const chatInput = e.target.chatMsg.value;
+                      if (!chatInput || !chatInput.trim()) return;
+                      try {
+                        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+                        const res = await fetch(`http://localhost:5001/api/projects/${project._id}/messages`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ message: chatInput })
+                        });
+                        if (res.ok) {
+                          e.target.reset();
+                          fetchClientPortal();
+                        }
+                      } catch (err) { alert('Error sending message'); }
+                    }}
+                    style={{ padding: '1rem 1.25rem', backgroundColor: '#ffffff', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '0.75rem', alignItems: 'center' }}
+                  >
+                    <input
+                      type="text"
+                      name="chatMsg"
+                      placeholder={`Type your question or doubt for ${project.assignedDesigner || 'the designer'}...`}
+                      style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                    <button
+                      type="submit"
+                      style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.75rem 1.4rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)' }}
+                    >
+                      Send 🚀
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
             {/* 5. TIMELINE TAB - REAL VERTICAL TIMELINE */}
             {activeTab === 'timeline' && (
               <div>
@@ -1456,18 +1548,33 @@ const ClientPortal = () => {
 
       {/* Image Preview Modal */}
       {previewImage && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '2rem' }}>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', maxWidth: '850px', width: '100%', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1.5rem' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', maxWidth: '960px', width: '100%', overflow: 'hidden', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
             <button
               onClick={() => setPreviewImage(null)}
-              style={{ position: 'absolute', top: '15px', right: '15px', backgroundColor: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              style={{ position: 'absolute', top: '15px', right: '15px', backgroundColor: '#0f172a', color: '#fff', border: 'none', borderRadius: '50%', width: '38px', height: '38px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}
             >
-              <X size={20} />
+              <X size={22} />
             </button>
-            <img src={previewImage.fileUrl} alt={previewImage.title} style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', backgroundColor: '#0f172a' }} />
-            <div style={{ padding: '1.25rem', backgroundColor: '#ffffff' }}>
-              <h3 style={{ margin: '0 0 0.25rem 0', color: '#0f172a' }}>{previewImage.title}</h3>
-              <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>Type: {previewImage.designType}</p>
+            <div style={{ backgroundColor: '#0f172a', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0.5rem', minHeight: '520px', width: '100%' }}>
+              <img src={previewImage.fileUrl} alt={previewImage.title} style={{ width: '100%', maxHeight: '80vh', objectFit: 'cover', borderRadius: '8px', boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }} />
+            </div>
+            <div style={{ padding: '1.25rem 1.5rem', backgroundColor: '#ffffff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: '0 0 0.25rem 0', color: '#0f172a', fontSize: '1.2rem', fontWeight: '800' }}>{previewImage.title}</h3>
+                <span style={{ fontSize: '0.8rem', backgroundColor: '#f1f5f9', color: '#3b82f6', fontWeight: '700', padding: '0.2rem 0.6rem', borderRadius: '6px' }}>
+                  {previewImage.designType || 'Ultra HD 3D Render'}
+                </span>
+              </div>
+              <a
+                href={previewImage.fileUrl}
+                download
+                target="_blank"
+                rel="noreferrer"
+                style={{ backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)' }}
+              >
+                <Download size={16} /> Open HD 3D Image
+              </a>
             </div>
           </div>
         </div>

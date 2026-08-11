@@ -16,6 +16,7 @@ const {
   deleteMaterial,
   respondQuotation,
   getAdminAnalytics,
+  postMessage,
 } = require("../controllers/projectController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -26,6 +27,7 @@ router.post("/:id/designs", protect, uploadDesign);
 router.delete("/:id/designs/:designId", protect, deleteDesign);
 router.post("/:id/materials", protect, addMaterial);
 router.delete("/:id/materials/:materialId", protect, deleteMaterial);
+router.post("/:id/messages", protect, postMessage);
 router.post("/:id/invoices", protect, createInvoice);
 router.put("/:id/invoices/:invoiceId/pay", protect, payInvoice);
 router.put("/:id/approve-design", protect, approveDesign);

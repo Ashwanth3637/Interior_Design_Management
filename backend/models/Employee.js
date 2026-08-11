@@ -87,6 +87,10 @@ const employeeSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        emergencyContact: {
+            type: String,
+            default: "",
+        },
         address: {
             type: String,
             default: "",

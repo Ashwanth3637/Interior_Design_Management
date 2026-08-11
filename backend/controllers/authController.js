@@ -166,6 +166,27 @@ exports.loginUser = async (req, res) => {
       isMatch = true;
     }
 
+    // Dynamic Sync: Check if an Employee record exists to ensure role is updated to Employee role (e.g. Interior Designer)
+    const Employee = require('../models/Employee');
+    const empRecord = await Employee.findOne({ email: { $regex: `^${cleanEmail}$`, $options: 'i' } });
+    if (empRecord) {
+      let correctRole = 'Interior Designer';
+      const r = empRecord.role ? empRecord.role.toUpperCase() : '';
+      if (r.includes('SUPER')) correctRole = 'Super Admin';
+      else if (r.includes('ADMIN')) correctRole = 'Admin';
+      else if (r.includes('DESIGN')) correctRole = 'Interior Designer';
+      else if (r.includes('SITE') || r.includes('ENGINEER')) correctRole = 'Site Engineer';
+      else if (r.includes('PROJECT') || r.includes('MANAGER')) correctRole = 'Project Manager';
+      else if (r.includes('ACCOUNT')) correctRole = 'Accountant';
+      else if (r.includes('SALES')) correctRole = 'Sales Executive';
+
+      if (user.role !== correctRole) {
+        user.role = correctRole;
+        if (empRecord.fullName) user.name = empRecord.fullName;
+        await user.save();
+      }
+    }
+
     // Check if user active
     if (!user.isActive) {
       return res.status(403).json({

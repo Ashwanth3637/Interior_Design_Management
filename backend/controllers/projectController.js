@@ -753,6 +753,55 @@ exports.respondQuotation = async (req, res) => {
   }
 };
 
+// @desc    Post message between Client and Designer
+// @route   POST /api/projects/:id/messages
+// @access  Private
+exports.postMessage = async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, message: 'Message content is required' });
+    }
+
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const senderRole = req.user.role === 'Client' ? 'Client' : 'Designer';
+    const newMsg = {
+      senderName: req.user.name || 'User',
+      senderRole,
+      message: message.trim(),
+      sentAt: new Date(),
+    };
+
+    project.projectMessages.push(newMsg);
+    await project.save();
+
+    // Trigger in-app notification
+    const recipient = senderRole === 'Client' ? 'Interior Designer' : 'Client';
+    await createNotification({
+      title: `💬 New Message from ${req.user.name}`,
+      message: `Project ${project.projectName}: ${message.trim().substring(0, 50)}...`,
+      type: 'Chat',
+      recipientRole: recipient,
+      relatedProjectId: project._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Message sent successfully',
+      data: project.projectMessages,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error posting chat message',
+    });
+  }
+};
+
 // @desc    Get Admin Analytics & Statistics Summary
 // @route   GET /api/projects/admin-analytics
 // @access  Private/Admin

@@ -5,7 +5,7 @@ const designSchema = new mongoose.Schema({
     designType: {
         type: String,
         enum: ["2D Floor Plan", "3D Render", "Moodboard", "Material Catalogue"],
-        default: "2D Floor Plan",
+        default: "3D Render",
     },
     fileUrl: { type: String, required: true },
     uploadedAt: { type: Date, default: Date.now },
@@ -216,6 +216,12 @@ const projectSchema = new mongoose.Schema(
             roomType: { type: String, default: "Living Room" },
             notes: { type: String, default: "" },
             uploadedAt: { type: Date, default: Date.now }
+        }],
+        projectMessages: [{
+            senderName: { type: String, required: true },
+            senderRole: { type: String, required: true }, // Client or Designer
+            message: { type: String, required: true },
+            sentAt: { type: Date, default: Date.now }
         }],
         quotations: [quotationSchema],
         designs: [designSchema],

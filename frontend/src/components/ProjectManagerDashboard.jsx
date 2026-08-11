@@ -672,7 +672,7 @@ const ProjectManagerDashboard = () => {
                           </td>
                           <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
-                              {p.progressPercentage >= 100 && p.workflowStage !== 'Client Handover' && p.workflowStage !== 'Project Closed' && (
+                              {p.progressPercentage >= 100 && p.workflowStage !== 'Client Handover' && p.workflowStage !== 'Project Closed' && p.status !== 'Completed' && p.status !== 'Handed Over' && (
                                 <button
                                   onClick={async () => {
                                     const hasFinalPaid = p.invoices && p.invoices.some(i => (i.installmentType === 'Final Installment' || i.title.includes('Final')) && i.status === 'Paid');
