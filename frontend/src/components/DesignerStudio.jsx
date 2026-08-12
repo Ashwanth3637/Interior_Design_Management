@@ -29,7 +29,9 @@ import {
   Calendar,
   ChevronRight,
   Star,
-  CheckCircle2
+  CheckCircle2,
+  RotateCw,
+  Heart
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
@@ -42,6 +44,13 @@ const DesignerStudio = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSpinning, setIsSpinning] = useState(false);
+
+  const handleManualRefresh = () => {
+    setIsSpinning(true);
+    fetchDesignerData(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  };
   const [activeTab, setActiveTab] = useState('assigned'); // assigned, revisions, floorplan, renders, moodboard, catalogue
 
   // Search & Filter State
@@ -365,6 +374,7 @@ const DesignerStudio = () => {
     }
   };
 
+
   // Submit Designs or Revision for Client Review Approval
   const handleSubmitForApproval = async () => {
     if (!selectedProject) return;
@@ -384,6 +394,7 @@ const DesignerStudio = () => {
       if (res.ok && data.success) {
         setSuccessMsg(isRevision ? `Revision Submitted successfully! Design Version updated to v${data.data.designVersion || 2}.` : `Designs submitted for Client Review! Status updated to 'Pending Review'.`);
         setSelectedProject(data.data);
+        setIsStudioModalOpen(false);
         fetchDesignerData();
       } else {
         setError(data.message || 'Failed to submit designs for review');
@@ -465,6 +476,27 @@ const DesignerStudio = () => {
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button
+                onClick={handleManualRefresh}
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  padding: '0.65rem 1rem',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: '600',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Refresh Studio Data"
+              >
+                <RotateCw size={16} className={isSpinning ? 'spin-icon' : ''} style={{ color: '#2563eb' }} /> Refresh
+              </button>
               <NotificationBell />
             </div>
           </div>
@@ -494,14 +526,18 @@ const DesignerStudio = () => {
             </div>
           </div>
 
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+          <div 
+            onClick={() => { setStatusFilter('Completed'); setActiveTab('assigned'); }}
+            style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', boxShadow: '0 2px 6px rgba(0,0,0,0.02)', cursor: 'pointer' }}
+            title="Click to view all Completed Projects"
+          >
             <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CheckCircle2 size={24} />
             </div>
             <div>
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Completed Projects</span>
               <h2 style={{ fontSize: '1.65rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>
-                {projects.filter(p => p.status === 'Completed' && (p.progressPercentage || 0) >= 100).length}
+                {projects.filter(p => p.status === 'Completed' || (p.progressPercentage || 0) >= 100).length}
               </h2>
             </div>
           </div>
@@ -558,6 +594,12 @@ const DesignerStudio = () => {
               style={{ padding: '0.55rem 1rem', borderRadius: '10px', border: 'none', backgroundColor: activeTab === 'clientMessages' ? '#2563eb' : '#f1f5f9', color: activeTab === 'clientMessages' ? '#ffffff' : '#64748b', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
               <MessageSquare size={16} /> Client Messages ({projects.reduce((acc, p) => acc + (p.projectMessages?.length || 0), 0)})
+            </button>
+            <button
+              onClick={() => { setActiveTab('completed'); setStatusFilter('Completed'); }}
+              style={{ padding: '0.55rem 1rem', borderRadius: '10px', border: 'none', backgroundColor: activeTab === 'completed' ? '#16a34a' : '#f1f5f9', color: activeTab === 'completed' ? '#ffffff' : '#64748b', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <CheckCircle2 size={16} /> Completed ({projects.filter(p => p.status === 'Completed' || (p.progressPercentage || 0) >= 100).length})
             </button>
           </div>
 
@@ -793,7 +835,22 @@ const DesignerStudio = () => {
                         <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {p.projectId} • {p.projectType}
                         </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          {(p.designApprovalStatus === 'Approved' || p.workflowStage === 'Design Approved') && (
+                            <span style={{ backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <CheckCircle2 size={12} color="#16a34a" /> ✔ Design Approved by Client
+                            </span>
+                          )}
+                          {p.quotations && p.quotations.length > 0 && (
+                            <span style={{ backgroundColor: p.quotations[p.quotations.length - 1].status === 'Accepted' ? '#f0fdf4' : p.quotations[p.quotations.length - 1].status === 'Rejected' ? '#fef2f2' : '#eff6ff', color: p.quotations[p.quotations.length - 1].status === 'Accepted' ? '#16a34a' : p.quotations[p.quotations.length - 1].status === 'Rejected' ? '#dc2626' : '#2563eb', border: `1px solid ${p.quotations[p.quotations.length - 1].status === 'Accepted' ? '#bbf7d0' : p.quotations[p.quotations.length - 1].status === 'Rejected' ? '#fca5a5' : '#bfdbfe'}`, padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              {p.quotations[p.quotations.length - 1].status === 'Accepted' ? '✔ Quotation Approved' : p.quotations[p.quotations.length - 1].status === 'Rejected' ? '❌ Quotation Rejected by Client' : `📜 Quotation v${p.quotations.length} Issued (Sent to Client)`}
+                            </span>
+                          )}
+                          {p.designs && p.designs.some(d => d.isFavorite) && (
+                            <span style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <Heart size={12} fill="#dc2626" /> Client Shortlisted {p.designs.filter(d => d.isFavorite).length} Concepts
+                            </span>
+                          )}
                           <span style={{ backgroundColor: p.status === 'Completed' ? '#f0fdf4' : p.status === 'In Progress' ? '#eff6ff' : '#f8fafc', color: p.status === 'Completed' ? '#16a34a' : p.status === 'In Progress' ? '#2563eb' : '#64748b', padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700' }}>
                             {p.status}
                           </span>
@@ -1275,15 +1332,37 @@ const DesignerStudio = () => {
                   {/* Uploaded Designs List */}
                   {selectedProject.designs?.length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.85rem', marginTop: '1.25rem' }}>
-                      {selectedProject.designs.map((ds) => (
-                        <div key={ds._id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#ffffff' }}>
-                          <img src={ds.fileUrl} alt={ds.title} style={{ width: '100%', height: '100px', objectFit: 'cover' }} />
-                          <div style={{ padding: '0.55rem' }}>
-                            <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#0f172a' }}>{ds.title}</div>
-                            <div style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: '600' }}>{ds.designType}</div>
+                      {selectedProject.designs.map((ds) => {
+                        const isFav = ds.isFavorite;
+                        return (
+                          <div key={ds._id} style={{ border: `1.5px solid ${isFav ? '#fca5a5' : '#e2e8f0'}`, borderRadius: '10px', overflow: 'hidden', backgroundColor: '#ffffff', position: 'relative', boxShadow: isFav ? '0 3px 10px rgba(239, 68, 68, 0.15)' : 'none' }}>
+                            {/* Delete Design Proposal Image Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDesign(ds._id);
+                              }}
+                              style={{ position: 'absolute', top: '6px', right: '6px', backgroundColor: '#ef4444', color: '#ffffff', border: 'none', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10, boxShadow: '0 2px 5px rgba(0,0,0,0.25)' }}
+                              title="Delete Design Image"
+                            >
+                              <Trash2 size={12} color="#ffffff" />
+                            </button>
+                            {isFav && (
+                              <div style={{ position: 'absolute', top: '6px', left: '6px', backgroundColor: '#ef4444', color: '#ffffff', padding: '0.15rem 0.5rem', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.25rem', zIndex: 5, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                                <Heart size={10} fill="#ffffff" /> Client Shortlisted
+                              </div>
+                            )}
+                            <img src={ds.fileUrl} alt={ds.title} style={{ width: '100%', height: '100px', objectFit: 'cover' }} />
+                            <div style={{ padding: '0.55rem' }}>
+                              <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#0f172a' }}>{ds.title}</div>
+                              <div style={{ fontSize: '0.7rem', color: isFav ? '#dc2626' : '#2563eb', fontWeight: '700' }}>
+                                {isFav ? '❤️ Favorite Concept' : ds.designType}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1293,56 +1372,92 @@ const DesignerStudio = () => {
                   <h4 style={{ margin: '0 0 0.85rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     📦 Add Material Spec & Estimated Price (Designer / PM)
                   </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem', marginBottom: '0.65rem' }}>
-                    <input
-                      type="text"
-                      placeholder="Material Name (e.g. Waterproof Plywood)"
-                      value={matName}
-                      onChange={(e) => setMatName(e.target.value)}
-                      style={{ padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Brand (e.g. CenturyPly)"
-                      value={matBrand}
-                      onChange={(e) => setMatBrand(e.target.value)}
-                      style={{ padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
-                    />
-                    <div style={{ display: 'flex', gap: '0.3rem' }}>
-                      <input
-                        type="number"
-                        placeholder="Qty"
-                        value={matQty}
-                        onChange={(e) => setMatQty(e.target.value)}
-                        style={{ width: '65px', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Units"
-                        value={matUnit}
-                        onChange={(e) => setMatUnit(e.target.value)}
-                        style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
-                      />
+
+                  {selectedProject.designApprovalStatus !== 'Approved' ? (
+                    <div style={{ backgroundColor: '#fffbeb', color: '#b45309', border: '1.5px solid #fde68a', padding: '0.85rem 1.1rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      🔒 Material Entry Locked: Awaiting Client 2D/3D Design Approval before entering estimated materials & prices.
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input
-                      type="number"
-                      placeholder="Estimated Price in ₹ (e.g. 36000)"
-                      value={matEstPrice}
-                      onChange={(e) => setMatEstPrice(e.target.value)}
-                      style={{ flex: 1, padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
-                    />
-                    <button
-                      type="button"
-                      disabled={addingMaterial}
-                      onClick={handleAddMaterial}
-                      style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
-                    >
-                      {addingMaterial ? 'Adding...' : 'Add Material Spec'}
-                    </button>
-                  </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem', marginBottom: '0.65rem' }}>
+                        <input
+                          type="text"
+                          placeholder="Material Name (e.g. Waterproof Plywood)"
+                          value={matName}
+                          onChange={(e) => setMatName(e.target.value)}
+                          style={{ padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Brand (e.g. CenturyPly)"
+                          value={matBrand}
+                          onChange={(e) => setMatBrand(e.target.value)}
+                          style={{ padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                        />
+                        <div style={{ display: 'flex', gap: '0.3rem' }}>
+                          <input
+                            type="number"
+                            placeholder="Qty"
+                            value={matQty}
+                            onChange={(e) => setMatQty(e.target.value)}
+                            style={{ width: '65px', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Units"
+                            value={matUnit}
+                            onChange={(e) => setMatUnit(e.target.value)}
+                            style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                          />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input
+                          type="number"
+                          placeholder="Estimated Price in ₹ (e.g. 36000)"
+                          value={matEstPrice}
+                          onChange={(e) => setMatEstPrice(e.target.value)}
+                          style={{ flex: 1, padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.85rem', outline: 'none' }}
+                        />
+                        <button
+                          type="button"
+                          disabled={addingMaterial}
+                          onClick={handleAddMaterial}
+                          style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
+                        >
+                          {addingMaterial ? 'Adding...' : 'Add Material Spec'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Official Price Quotation & Revision Status */}
+                {selectedProject.quotations && selectedProject.quotations.length > 0 && (
+                  <div style={{ marginTop: '1.5rem', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1', padding: '1.25rem' }}>
+                    <h4 style={{ margin: '0 0 0.65rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      📜 Official Price Quotations & Client Feedback ({selectedProject.quotations.length})
+                    </h4>
+                    {selectedProject.quotations.map((q, idx) => (
+                      <div key={idx} style={{ backgroundColor: q.status === 'Accepted' ? '#f0fdf4' : q.status === 'Rejected' ? '#fef2f2' : '#eff6ff', border: `1px solid ${q.status === 'Accepted' ? '#bbf7d0' : q.status === 'Rejected' ? '#fca5a5' : '#bfdbfe'}`, borderRadius: '8px', padding: '0.85rem', marginBottom: '0.5rem', fontSize: '0.82rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', color: '#0f172a' }}>
+                          <span>Quotation #{idx + 1} ({q.quotationNumber || `QTN-${selectedProject.projectId}-${idx+1}`})</span>
+                          <span style={{ color: q.status === 'Accepted' ? '#16a34a' : q.status === 'Rejected' ? '#dc2626' : '#2563eb' }}>
+                            {q.status === 'Accepted' ? '✔ Accepted by Client' : q.status === 'Rejected' ? '❌ Rejected by Client (Revision Requested)' : '⏳ Sent to Client (Pending Approval)'}
+                          </span>
+                        </div>
+                        <div style={{ marginTop: '0.25rem', color: '#475569' }}>
+                          Total Contract Price: <strong>₹{q.totalAmount?.toLocaleString('en-IN')}</strong> • Issued by <strong>{q.generatedBy || 'PM'}</strong>
+                        </div>
+                        {q.status === 'Rejected' && selectedProject.clientFeedback && (
+                          <div style={{ marginTop: '0.4rem', backgroundColor: '#ffffff', padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid #fecaca', color: '#991b1b', fontStyle: 'italic', fontWeight: '600' }}>
+                            💬 Client Cost Query / Revision Feedback: "{selectedProject.clientFeedback}"
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Bottom Action Footer */}
                 <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', flexWrap: 'wrap' }}>

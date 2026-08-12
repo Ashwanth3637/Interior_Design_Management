@@ -50,8 +50,12 @@ const notificationSchema = new mongoose.Schema(
             enum: [
                 "revision_requested",
                 "design_approved",
+                "quotation_issued",
                 "quotation_approved",
                 "payment_received",
+                "progress_updated",
+                "handover_requested",
+                "advance_cleared",
                 "project_completed",
                 "material_requested",
                 "general"

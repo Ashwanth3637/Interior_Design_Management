@@ -17,7 +17,8 @@ import {
   Users,
   Eye,
   Activity,
-  Edit3
+  Edit3,
+  RotateCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
@@ -32,6 +33,13 @@ const SiteEngineerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSpinning, setIsSpinning] = useState(false);
+
+  const handleManualRefresh = () => {
+    setIsSpinning(true);
+    fetchSiteProjects(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  };
 
   // Modals
   const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
@@ -135,18 +143,19 @@ const SiteEngineerDashboard = () => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        alert(`✅ ${data.message || 'Site work progress updated successfully!'}`);
         setSuccessMsg(data.message || 'Site work progress updated successfully!');
         setIsProgressModalOpen(false);
         fetchSiteProjects(true);
       } else {
-        alert(`Error: ${data.message || 'Failed to update progress'}`);
-        setError(data.message || 'Failed to update progress');
+        const errMsg = data.message || 'Failed to update progress';
+        setError(errMsg);
+        alert(`⚠️ ${errMsg}`);
       }
     } catch (err) {
       console.error('Progress update exception:', err);
-      alert('Network error updating progress. Please check server.');
-      setError('Network error updating progress');
+      const errDetail = err.message || 'Network error updating progress. Please check server connection.';
+      setError(errDetail);
+      alert(`⚠️ ${errDetail}`);
     } finally {
       setSubmitting(false);
     }
@@ -315,7 +324,28 @@ const SiteEngineerDashboard = () => {
                 Logged in as <strong>{user?.name || 'Site Engineer'}</strong>. Manage on-site execution, daily work logs, photo inspections, and issue reporting.
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button
+                onClick={handleManualRefresh}
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  padding: '0.65rem 1rem',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: '600',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Refresh Dashboard Data"
+              >
+                <RotateCw size={16} className={isSpinning ? 'spin-icon' : ''} style={{ color: '#2563eb' }} /> Refresh
+              </button>
               <img 
                 src="/engineer_site_inspection_1786024342723.png" 
                 alt="Site Inspection Work" 
@@ -504,17 +534,84 @@ const SiteEngineerDashboard = () => {
                       </div>
 
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {p.advancePaymentPaid || p.workflowStage === "Advance Payment Received" || (p.invoices && p.invoices.some(i => i.status === 'Paid')) ? (
+                        {/* CASE 1: Project officially completed by Admin */}
+                        {p.status === 'Completed' ? (
+                          <div style={{ flex: 1, background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '2px solid #16a34a', padding: '0.75rem 1rem', borderRadius: '10px', textAlign: 'center', fontWeight: '800', color: '#15803d', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                            🎉 Project Officially Completed & Handed Over to Client!
+                          </div>
+
+                        /* CASE 2: Awaiting PM Verification (SE submitted 100%) */
+                        ) : (p.workflowStage === 'Awaiting PM Verification' || p.status === 'Review') ? (
+                          <div style={{ flex: 1, background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '2px solid #2563eb', padding: '0.65rem 1rem', borderRadius: '10px', textAlign: 'center', fontWeight: '700', color: '#1d4ed8', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                            ⏳ Submitted to PM for Verification — Awaiting Approval
+                          </div>
+
+                        /* CASE 3: Awaiting Admin Handover (PM verified) */
+                        ) : (p.workflowStage === 'Awaiting Admin Handover' || p.status === 'Verified') ? (
+                          <div style={{ flex: 1, background: 'linear-gradient(135deg, #fdf4ff, #f3e8ff)', border: '2px solid #9333ea', padding: '0.65rem 1rem', borderRadius: '10px', textAlign: 'center', fontWeight: '700', color: '#7e22ce', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                            ✅ PM Verified — Awaiting Admin Final Handover
+                          </div>
+
+                        /* CASE 4: Quotation not approved yet */
+                        ) : (!p.quotationApproved && (!p.quotations || !p.quotations.some(q => q.status === 'Accepted'))) ? (
+                          <div style={{ flex: 1, backgroundColor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '0.55rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.78rem', textAlign: 'center' }}>
+                            🔒 Execution Locked (Awaiting Client Approval on Estimated Materials & Quotation)
+                          </div>
+
+                        /* CASE 5: Advance not paid / verified yet */
+                        ) : !(p.advancePaymentPaid || p.workflowStage === "Advance Payment Received" || p.workflowStage === "Advance Payment Cleared" || (p.invoices && p.invoices.some(i => (i.installmentType === 'Advance' || i.installmentType === 'Advance Payment' || i.title?.includes('Advance')) && i.status === 'Paid'))) ? (
+                          <div style={{ flex: 1, backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '0.55rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.78rem', textAlign: 'center' }}>
+                            🔒 Execution Locked (Awaiting Client 20% Advance Payment & Accountant Verification)
+                          </div>
+
+                        /* CASE 6: 60% 2nd Installment Lock (If progress is at 60% and 2nd invoice is unpaid) */
+                        ) : (p.progressPercentage >= 60 && p.invoices && p.invoices.some(i => (i.installmentType === 'Second Installment' || i.title?.includes('Second')) && i.status !== 'Paid')) ? (
+                          <div style={{ flex: 1, backgroundColor: '#fff7ed', color: '#c2410c', border: '1px solid #ffedd5', padding: '0.55rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.78rem', textAlign: 'center' }}>
+                            🔒 Execution Locked at {p.progressPercentage}% (Awaiting 60% 2nd Installment Payment & Accountant Verification)
+                          </div>
+
+                        /* CASE 7: 20% Final Installment Lock (If progress is at 90% and final invoice is unpaid) */
+                        ) : (p.progressPercentage >= 90 && p.invoices && p.invoices.some(i => (i.installmentType === 'Final Installment' || i.title?.includes('Final')) && i.status !== 'Paid')) ? (
+                          <div style={{ flex: 1, backgroundColor: '#fdf2f8', color: '#be185d', border: '1px solid #fce7f3', padding: '0.55rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.78rem', textAlign: 'center' }}>
+                            🔒 Completion Locked at {p.progressPercentage}% (Awaiting 20% Final Payment & Accountant Verification)
+                          </div>
+
+                        /* CASE 8: Progress is exactly 100% — show Mark as Completed button */
+                        ) : (p.progressPercentage || 0) >= 100 ? (
+                          <button
+                            onClick={async () => {
+                              if (window.confirm('Mark this project as 100% completed and submit to Project Manager for verification?')) {
+                                try {
+                                  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+                                  const res = await fetch(`http://localhost:5001/api/projects/${p._id}/se-mark-completed`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+                                  });
+                                  const result = await res.json();
+                                  if (res.ok && result.success) {
+                                    setSuccessMsg('✅ Project submitted to PM for verification!');
+                                    fetchSiteProjects(true);
+                                  } else {
+                                    alert(`⚠️ ${result.message || 'Failed to mark as completed'}`);
+                                  }
+                                } catch (err) {
+                                  alert('⚠️ Network error. Please try again.');
+                                }
+                              }
+                            }}
+                            style={{ flex: 1, background: 'linear-gradient(135deg, #059669, #047857)', color: '#ffffff', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: '800', fontSize: '0.88rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(5, 150, 105, 0.4)', letterSpacing: '0.01em' }}
+                          >
+                            🏁 Mark Project as Completed & Submit to PM
+                          </button>
+
+                        /* CASE 9: Normal progress update button */
+                        ) : (
                           <button
                             onClick={() => openProgressModal(p)}
                             style={{ flex: 1, backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.6rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
                           >
                             <Edit3 size={15} /> Update Site Progress
                           </button>
-                        ) : (
-                          <div style={{ flex: 1, backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '0.55rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.78rem', textAlign: 'center' }}>
-                            🔒 Execution Locked (Awaiting Client Advance Payment)
-                          </div>
                         )}
                       </div>
                     </div>

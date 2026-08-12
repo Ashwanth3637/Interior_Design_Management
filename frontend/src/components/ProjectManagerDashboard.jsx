@@ -20,7 +20,9 @@ import {
   MessageSquare,
   Award,
   FileCheck,
-  CreditCard
+  CreditCard,
+  RotateCw,
+  Heart
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import WorkflowStepper from './WorkflowStepper';
@@ -63,6 +65,13 @@ const ProjectManagerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSpinning, setIsSpinning] = useState(false);
+
+  const handleManualRefresh = () => {
+    setIsSpinning(true);
+    fetchPMData(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  };
 
   const [activeTab, setActiveTab] = useState('projects'); // projects, dailyLogs, materials, issues, budget
   const [selectedProject, setSelectedProject] = useState(null);
@@ -270,13 +279,13 @@ const ProjectManagerDashboard = () => {
   const openSecondInstallmentModal = (p) => {
     setSelectedProject(p);
     const totalBudget = p.budget || 500000;
-    const calcAmount = Math.round(totalBudget * 0.3);
+    const calcAmount = Math.round(totalBudget * 0.6);
 
     setSecondInstallmentForm({
-      installmentStage: 'Second Installment (30%)',
+      installmentStage: 'Second Installment (60%)',
       amount: calcAmount,
       dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      remarks: 'Second installment payment for 50-60% site execution completion.'
+      remarks: 'Second installment payment (60%) for 50-60% site execution completion.'
     });
     setIsSecondInstallmentModalOpen(true);
   };
@@ -387,6 +396,27 @@ const ProjectManagerDashboard = () => {
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button
+                onClick={handleManualRefresh}
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  padding: '0.65rem 1rem',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: '600',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Refresh PM Dashboard Data"
+              >
+                <RotateCw size={16} className={isSpinning ? 'spin-icon' : ''} style={{ color: '#2563eb' }} /> Refresh
+              </button>
               <NotificationBell />
             </div>
           </div>
@@ -444,14 +474,21 @@ const ProjectManagerDashboard = () => {
             </div>
           </div>
 
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '1.25rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+          <div style={{ backgroundColor: summary.pendingVerification > 0 ? '#fffbeb' : '#ffffff', borderRadius: '16px', border: `2px solid ${summary.pendingVerification > 0 ? '#d97706' : '#e2e8f0'}`, padding: '1.25rem', boxShadow: summary.pendingVerification > 0 ? '0 4px 12px rgba(217,119,6,0.15)' : '0 2px 4px rgba(0,0,0,0.02)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <span style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: '600' }}>Delayed Projects</span>
-                <h2 style={{ margin: '0.2rem 0 0 0', color: '#dc2626', fontSize: '1.75rem', fontWeight: '800' }}>{summary.delayedProjects}</h2>
+                <span style={{ color: summary.pendingVerification > 0 ? '#92400e' : '#64748b', fontSize: '0.85rem', fontWeight: '600' }}>
+                  {summary.pendingVerification > 0 ? '⚠️ Awaiting Your Verification' : 'Pending Verification'}
+                </span>
+                <h2 style={{ margin: '0.2rem 0 0 0', color: summary.pendingVerification > 0 ? '#b45309' : '#0f172a', fontSize: '1.75rem', fontWeight: '800' }}>
+                  {summary.pendingVerification || 0}
+                </h2>
+                {summary.pendingVerification > 0 && (
+                  <span style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: '700' }}>Site work complete — review needed</span>
+                )}
               </div>
-              <div style={{ width: '46px', height: '46px', borderRadius: '12px', backgroundColor: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <AlertTriangle size={24} />
+              <div style={{ width: '46px', height: '46px', borderRadius: '12px', backgroundColor: summary.pendingVerification > 0 ? '#fef3c7' : '#f8fafc', color: summary.pendingVerification > 0 ? '#d97706' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CheckCircle size={24} />
               </div>
             </div>
           </div>
@@ -640,7 +677,19 @@ const ProjectManagerDashboard = () => {
                           <td style={{ padding: '1rem 1.25rem' }}>
                             <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.95rem' }}>{p.projectName}</div>
                             <div style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: '600' }}>{p.projectId} • {p.projectType}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>📍 {p.location}</div>
+                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                              {(p.designApprovalStatus === 'Approved' || p.workflowStage === 'Design Approved') && (
+                                <span style={{ backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.15rem 0.55rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <CheckSquare size={11} color="#16a34a" /> ✔ Design Approved by Client
+                                </span>
+                              )}
+                              {p.designs && p.designs.some(d => d.isFavorite) && (
+                                <span style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', padding: '0.15rem 0.55rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <Heart size={10} fill="#dc2626" /> Client Shortlisted ({p.designs.filter(d => d.isFavorite).length})
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>📍 {p.location}</div>
                           </td>
                           <td style={{ padding: '1rem 1.25rem' }}>
                             <div style={{ fontWeight: '600', color: '#0f172a' }}>{p.clientName}</div>
@@ -672,66 +721,67 @@ const ProjectManagerDashboard = () => {
                           </td>
                           <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
-                              {p.progressPercentage >= 100 && p.workflowStage !== 'Client Handover' && p.workflowStage !== 'Project Closed' && p.status !== 'Completed' && p.status !== 'Handed Over' && (
+
+
+                              {/* === COMPLETION WORKFLOW ACTIONS === */}
+
+                              {/* STAGE: Admin has done final handover — Project Completed */}
+                              {p.status === 'Completed' ? (
+                                <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '2px solid #16a34a', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: '800', color: '#15803d', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  🎉 Project Completed & Handed Over!
+                                </div>
+
+                              /* STAGE: SE submitted 100% — PM must verify */
+                              ) : (p.workflowStage === 'Awaiting PM Verification' || p.status === 'Review') ? (
                                 <button
                                   onClick={async () => {
-                                    const hasFinalPaid = p.invoices && p.invoices.some(i => (i.installmentType === 'Final Installment' || i.title.includes('Final')) && i.status === 'Paid');
-                                    const actionText = hasFinalPaid ? "Handover Project to Client & Generate Completion Certificate?" : "Perform Final Inspection & Issue Final Payment Request (₹1,12,000)?";
-                                    if (window.confirm(actionText)) {
+                                    if (window.confirm(`Verify site work completion of "${p.projectName}" and submit to Admin for final handover?`)) {
                                       try {
                                         const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-                                        const nextStage = hasFinalPaid ? "Client Handover" : "Quality Inspection";
-                                        const nextStatus = "Completed";
-                                        const res = await fetch(`http://localhost:5001/api/projects/${p._id}/progress`, {
+                                        const res = await fetch(`http://localhost:5001/api/projects/${p._id}/pm-verify-completion`, {
                                           method: 'PUT',
-                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                          body: JSON.stringify({ progressPercentage: 100, status: nextStatus, workflowStage: nextStage })
+                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
                                         });
                                         const result = await res.json();
                                         if (res.ok && result.success) {
-                                          alert(hasFinalPaid ? '🎉 Project officially handed over! Completion Certificate generated.' : '✅ Final Inspection Passed! Final 20% Payment Request issued to Accountant.');
+                                          setSuccessMsg('✅ Project verified! Sent to Admin for final handover.');
                                           fetchPMData();
+                                        } else {
+                                          alert(`⚠️ ${result.message || 'Failed to verify'}`);
                                         }
-                                      } catch (err) { alert('Network error performing handover action'); }
+                                      } catch (err) { alert('Network error verifying project'); }
                                     }
                                   }}
-                                  style={{ backgroundColor: p.invoices && p.invoices.some(i => (i.installmentType === 'Final Installment' || i.title.includes('Final')) && i.status === 'Paid') ? '#2563eb' : '#16a34a', color: '#ffffff', border: 'none', padding: '0.5rem 0.85rem', borderRadius: '6px', fontWeight: '800', fontSize: '0.82rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 2px 8px rgba(37, 99, 235, 0.35)' }}
+                                  style={{ background: 'linear-gradient(135deg, #059669, #047857)', color: '#ffffff', border: 'none', padding: '0.5rem 0.85rem', borderRadius: '6px', fontWeight: '800', fontSize: '0.82rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 2px 8px rgba(5,150,105,0.4)', animation: 'pulse 2s infinite' }}
                                 >
-                                  <CheckSquare size={15} /> {p.invoices && p.invoices.some(i => (i.installmentType === 'Final Installment' || i.title.includes('Final')) && i.status === 'Paid') ? '🤝 Handover Project' : '🔍 Final Inspection & Payment Request'}
+                                  <CheckSquare size={15} /> ✅ Verify Site Work & Send to Admin
+                                </button>
+
+                              /* STAGE: PM verified — waiting for Admin */
+                              ) : (p.workflowStage === 'Awaiting Admin Handover' || p.status === 'Verified') ? (
+                                <div style={{ background: 'linear-gradient(135deg, #fdf4ff, #f3e8ff)', border: '2px solid #9333ea', padding: '0.5rem 0.85rem', borderRadius: '8px', fontWeight: '700', color: '#7e22ce', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  ✅ Verified — Awaiting Admin Final Handover
+                                </div>
+
+                              ) : null}
+
+                              {/* Generate Initial or Revised Quotation: Hidden once client accepts */}
+                              {p.status !== 'Completed' && p.status !== 'Verified' && p.workflowStage !== 'Awaiting PM Verification' && p.workflowStage !== 'Awaiting Admin Handover' && (!p.quotationApproved && (!p.quotations || !p.quotations.some(q => q.status === 'Accepted'))) && (p.designApprovalStatus === 'Approved' || p.workflowStage === 'Design Approved' || p.workflowStage === 'Quotation Rejected' || p.quotations?.some(q => q.status === 'Rejected')) && (
+                                <button
+                                  onClick={() => openQuotationModal(p)}
+                                  style={{ backgroundColor: (p.workflowStage === 'Quotation Rejected' || p.quotations?.some(q => q.status === 'Rejected')) ? '#ea580c' : '#16a34a', color: '#ffffff', border: 'none', padding: '0.55rem 0.85rem', borderRadius: '6px', fontWeight: '800', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: (p.workflowStage === 'Quotation Rejected' || p.quotations?.some(q => q.status === 'Rejected')) ? '0 2px 8px rgba(234, 88, 12, 0.35)' : '0 2px 6px rgba(22, 163, 74, 0.25)' }}
+                                >
+                                  <FileText size={15} /> {(p.workflowStage === 'Quotation Rejected' || p.quotations?.some(q => q.status === 'Rejected')) ? '💬 View Queries & Create Revised Quotation' : 'Generate Initial Quotation'}
                                 </button>
                               )}
-                              
-                               {/* Generate Initial Quotation: Hidden once client accepts/approves initial quotation */}
-                               {(!p.quotationApproved && (!p.quotations || !p.quotations.some(q => q.status === 'Accepted'))) && (p.designApprovalStatus === 'Approved' || p.workflowStage === 'Design Approved') && (
-                                 <button
-                                   onClick={() => openQuotationModal(p)}
-                                   style={{ backgroundColor: '#16a34a', color: '#ffffff', border: 'none', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 6px rgba(22, 163, 74, 0.25)' }}
-                                 >
-                                   <FileText size={14} /> Generate Initial Quotation
-                                 </button>
-                               )}
 
-                               {/* Generate 2nd Installment Invoice: Only shown when Site Engineer updates progress to 50%-60% */}
-                               {(p.progressPercentage >= 50 && p.progressPercentage < 100) && (!p.invoices || !p.invoices.some(i => i.installmentType === 'Second Installment')) && (
-                                 <button
-                                   onClick={() => openSecondInstallmentModal(p)}
-                                   style={{ backgroundColor: '#d97706', color: '#ffffff', border: 'none', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 8px rgba(217, 119, 6, 0.3)' }}
-                                 >
-                                   <CreditCard size={14} /> Generate 2nd Installment Invoice
-                                 </button>
-                               )}
-                              <button
-                                onClick={() => openUpdateModal(p)}
-                                style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
-                              >
-                                <Edit3 size={14} /> Reassign / Update
-                              </button>
+                              {/* Reassign / Update button — always visible unless completed */}
                               {p.status !== 'Completed' && (
                                 <button
-                                  onClick={() => handleMarkCompleted(p)}
-                                  style={{ backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.45rem 0.65rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                                  onClick={() => openUpdateModal(p)}
+                                  style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
                                 >
-                                  <CheckCircle size={14} /> Complete
+                                  <Edit3 size={14} /> Reassign / Update
                                 </button>
                               )}
                             </div>
@@ -1112,6 +1162,44 @@ const ProjectManagerDashboard = () => {
                 />
               </div>
 
+              {/* Design Proposals & Client Approval Preview */}
+              <div style={{ gridColumn: 'span 2', marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0' }}>
+                <h4 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '0.9rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  🎨 2D/3D Design Proposals & Client Approval Status
+                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.65rem' }}>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '9999px',
+                    backgroundColor: selectedProject.designApprovalStatus === 'Approved' ? '#f0fdf4' : selectedProject.designApprovalStatus === 'Revision Requested' ? '#fefce8' : '#eff6ff',
+                    color: selectedProject.designApprovalStatus === 'Approved' ? '#16a34a' : selectedProject.designApprovalStatus === 'Revision Requested' ? '#ca8a04' : '#2563eb',
+                    border: `1px solid ${selectedProject.designApprovalStatus === 'Approved' ? '#bbf7d0' : selectedProject.designApprovalStatus === 'Revision Requested' ? '#fef08a' : '#bfdbfe'}`
+                  }}>
+                    {selectedProject.designApprovalStatus === 'Approved' ? '✔ Client Approved Designs' : selectedProject.designApprovalStatus === 'Revision Requested' ? '🔄 Revision Requested by Client' : '⏳ Awaiting Client Approval'}
+                  </span>
+                </div>
+
+                {selectedProject.designs?.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.6rem' }}>
+                    {selectedProject.designs.map((ds, idx) => (
+                      <div key={ds._id || idx} style={{ border: `1.5px solid ${ds.isFavorite ? '#fca5a5' : '#e2e8f0'}`, borderRadius: '8px', overflow: 'hidden', backgroundColor: '#ffffff', position: 'relative' }}>
+                        {ds.isFavorite && (
+                          <div style={{ position: 'absolute', top: '4px', left: '4px', backgroundColor: '#ef4444', color: '#ffffff', padding: '0.1rem 0.4rem', borderRadius: '9999px', fontSize: '0.6rem', fontWeight: '800', zIndex: 2 }}>
+                            ❤️ Shortlisted
+                          </div>
+                        )}
+                        <img src={ds.fileUrl} alt={ds.title} style={{ width: '100%', height: '75px', objectFit: 'cover' }} />
+                        <div style={{ padding: '0.35rem', fontSize: '0.7rem', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {ds.title}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
                 <button
                   type="button"
@@ -1147,6 +1235,21 @@ const ProjectManagerDashboard = () => {
             </div>
 
             <form onSubmit={handleGenerateQuotation} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              {/* Client Rejection Queries Callout Box inside Modal */}
+              {(selectedProject.clientFeedback || selectedProject.workflowStage === 'Quotation Rejected' || selectedProject.quotations?.some(q => q.status === 'Rejected')) && (
+                <div style={{ gridColumn: 'span 2', backgroundColor: '#fff7ed', border: '1.5px solid #fed7aa', padding: '1rem 1.25rem', borderRadius: '12px', marginBottom: '0.5rem' }}>
+                  <div style={{ color: '#c2410c', fontWeight: '800', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem' }}>
+                    💬 Client Rejection Feedback & Cost Queries
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#9a3412', fontWeight: '700', fontStyle: 'italic', backgroundColor: '#ffffff', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #ffedd5' }}>
+                    "{selectedProject.clientFeedback || 'Cost reduction requested on material or carpentry items.'}"
+                  </div>
+                  <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.78rem', color: '#c2410c' }}>
+                    💡 Review the query above and adjust the itemized cost fields below to issue the revised quotation to the client!
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#334155', marginBottom: '0.3rem' }}>Material Cost (₹)</label>
                 <input
@@ -1325,7 +1428,7 @@ const ProjectManagerDashboard = () => {
                 <input
                   type="text"
                   readOnly
-                  value="Second Installment (30% - 50%-60% Site Progress)"
+                  value="Second Installment (60% - 50%-60% Site Progress)"
                   style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f1f5f9', color: '#334155', fontSize: '0.85rem', fontWeight: '700', outline: 'none' }}
                 />
               </div>

@@ -13,7 +13,10 @@ import {
   ChevronRight,
   ArrowLeft,
   Building2,
-  Briefcase
+  Briefcase,
+  RotateCw,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -45,6 +48,14 @@ const EmployeeManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleManualRefresh = () => {
+    setIsSpinning(true);
+    fetchEmployees(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  };
 
   // Filters & Pagination
   const [search, setSearch] = useState('');
@@ -278,7 +289,28 @@ const EmployeeManagement = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button
+            onClick={handleManualRefresh}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
+              padding: '0.75rem 1.1rem',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+              transition: 'all 0.2s ease'
+            }}
+            title="Refresh Employees List"
+          >
+            <RotateCw size={17} className={isSpinning ? 'spin-icon' : ''} style={{ color: '#2563eb' }} /> Refresh
+          </button>
           <img 
             src="/hero_living_room_1786022741605.png" 
             alt="3D Interior Design Render" 
@@ -522,7 +554,37 @@ const EmployeeManagement = () => {
 
               <div>
                 <label style={labelStyle}>Password {editingId && '(Leave blank to keep current)'}</label>
-                <input type="password" name="password" required={!editingId} value={formData.password} onChange={handleInputChange} style={inputStyle} />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    required={!editingId}
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    style={{ ...inputStyle, paddingRight: '2.5rem' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '0.75rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748b',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0
+                    }}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <div>

@@ -55,8 +55,8 @@ const Dashboard = () => {
 
   const isSuperAdmin = ['Super Admin', 'SUPER_ADMIN'].includes(user?.role);
   const isAdminOnly = ['Admin', 'ADMIN'].includes(user?.role);
-  const isAdmin = isSuperAdmin || isAdminOnly;
-  const isDesigner = ['Designer', 'INTERIOR_DESIGNER', 'Interior Designer', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN'].includes(user?.role);
+  const isAdmin = isAdminOnly; // Operational Admin (Excludes Super Admin)
+  const isDesigner = ['Designer', 'INTERIOR_DESIGNER', 'Interior Designer', 'Admin', 'ADMIN'].includes(user?.role);
 
   const getRoleBadgeStyle = (role) => {
     if (['Super Admin', 'SUPER_ADMIN'].includes(role)) {
@@ -150,30 +150,40 @@ const Dashboard = () => {
           {/* Easy Navigation Shortcuts Bar */}
           <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #cbd5e1', display: 'flex', flexWrap: 'wrap', gap: '0.6rem', alignItems: 'center' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', marginRight: '0.4rem' }}>Quick Navigation:</span>
-            <Link to="/checkin" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#0284c7', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <Clock size={14} /> Employee Check-In
-            </Link>
-            <Link to="/projects" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#2563eb', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <Briefcase size={14} /> Projects
-            </Link>
-            {isAdmin && (
+            {isSuperAdmin ? (
               <>
-                <Link to="/employees" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#2563eb', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                  <Users size={14} /> Employees
+                <Link to="/super-admin" className="hover-btn" style={{ backgroundColor: '#fffbe6', border: '1px solid #fef08a', color: '#b45309', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '800', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <Crown size={14} /> Super Admin Console
                 </Link>
-                <Link to="/clients" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#2563eb', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                  <UserCheck size={14} /> Clients
+                <Link to="/employees" className="hover-btn" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '800', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <Users size={14} /> Employee Management (Add / Edit / Delete)
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/projects" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#2563eb', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <Briefcase size={14} /> Projects
+                </Link>
+                {isAdmin && (
+                  <>
+                    <Link to="/employees" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#2563eb', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                      <Users size={14} /> Employees
+                    </Link>
+                    <Link to="/clients" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#2563eb', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                      <UserCheck size={14} /> Clients
+                    </Link>
+                  </>
+                )}
+                {isDesigner && (
+                  <Link to="/designer-studio" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#7c3aed', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                    <Palette size={14} /> Designer Studio
+                  </Link>
+                )}
+                <Link to="/client-portal" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#059669', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <Layers size={14} /> Client Portal
                 </Link>
               </>
             )}
-            {isDesigner && (
-              <Link to="/designer-studio" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#7c3aed', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                <Palette size={14} /> Designer Studio
-              </Link>
-            )}
-            <Link to="/client-portal" className="hover-btn" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#059669', padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <Layers size={14} /> Client Portal
-            </Link>
           </div>
         </section>
 
@@ -387,20 +397,20 @@ const Dashboard = () => {
             </div>
 
             {/* Project Manager Panel */}
-            <div className={`role-panel ${['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role) ? 'active' : 'disabled'}`}>
+            <div className={`role-panel ${['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN'].includes(user?.role) ? 'active' : 'disabled'}`}>
               <div className="role-panel-header">
                 <Briefcase size={24} className="panel-icon designer" style={{ color: '#2563eb' }} />
                 <h4>Project Manager Portal</h4>
               </div>
               <p>Manage all projects, assign employee teams, track timelines, approve work, and generate reports.</p>
-              {(['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) && (
+              {(['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN'].includes(user?.role)) && (
                 <div style={{ marginTop: '1rem' }}>
                   <Link to="/pm-dashboard" style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 1rem', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}>
                     <Briefcase size={16} /> Open PM Dashboard
                   </Link>
                 </div>
               )}
-              {(['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) ? (
+              {(['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN'].includes(user?.role)) ? (
                 <div className="panel-status success" style={{ marginTop: '0.75rem' }}>
                   <CheckCircle2 size={16} /> Access Granted
                 </div>
@@ -412,20 +422,20 @@ const Dashboard = () => {
             </div>
 
             {/* Sales Executive Panel */}
-            <div className={`role-panel ${['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role) ? 'active' : 'disabled'}`}>
+            <div className={`role-panel ${['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN'].includes(user?.role) ? 'active' : 'disabled'}`}>
               <div className="role-panel-header">
                 <UserPlus size={24} className="panel-icon designer" style={{ color: '#2563eb' }} />
                 <h4>Sales Executive Portal</h4>
               </div>
               <p>Register client leads, record budget estimates, and initiate project workflows for PM handoff.</p>
-              {(['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) && (
+              {(['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN'].includes(user?.role)) && (
                 <div style={{ marginTop: '1rem' }}>
                   <Link to="/sales-executive" style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 1rem', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}>
                     <UserPlus size={16} /> Open Sales Dashboard
                   </Link>
                 </div>
               )}
-              {(['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) ? (
+              {(['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN'].includes(user?.role)) ? (
                 <div className="panel-status success" style={{ marginTop: '0.75rem' }}>
                   <CheckCircle2 size={16} /> Access Granted
                 </div>
@@ -437,20 +447,20 @@ const Dashboard = () => {
             </div>
 
             {/* Accountant Panel */}
-            <div className={`role-panel ${['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role) ? 'active' : 'disabled'}`}>
+            <div className={`role-panel ${['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN'].includes(user?.role) ? 'active' : 'disabled'}`}>
               <div className="role-panel-header">
                 <Calculator size={24} className="panel-icon designer" style={{ color: '#2563eb' }} />
                 <h4>Accountant Portal</h4>
               </div>
               <p>Manage client invoices, track multi-stage payments, maintain site expenses, and generate reports.</p>
-              {(['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) && (
+              {(['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN'].includes(user?.role)) && (
                 <div style={{ marginTop: '1rem' }}>
                   <Link to="/accountant" style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 1rem', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}>
                     <Calculator size={16} /> Open Accountant Dashboard
                   </Link>
                 </div>
               )}
-              {(['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) ? (
+              {(['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN'].includes(user?.role)) ? (
                 <div className="panel-status success" style={{ marginTop: '0.75rem' }}>
                   <CheckCircle2 size={16} /> Access Granted
                 </div>
@@ -462,20 +472,20 @@ const Dashboard = () => {
             </div>
 
             {/* Site Engineer Panel */}
-            <div className={`role-panel ${['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role) ? 'active' : 'disabled'}`}>
+            <div className={`role-panel ${['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN'].includes(user?.role) ? 'active' : 'disabled'}`}>
               <div className="role-panel-header">
                 <HardHat size={24} className="panel-icon designer" style={{ color: 'blue' }} />
                 <h4>Site Engineer Portal</h4>
               </div>
               <p>Track site execution, log daily work & workers, upload site photos, and report site issues.</p>
-              {(['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) && (
+              {(['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN'].includes(user?.role)) && (
                 <div style={{ marginTop: '1rem' }}>
                   <Link to="/site-engineer" style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 1rem', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)' }}>
                     <HardHat size={16} /> Open Site Dashboard
                   </Link>
                 </div>
               )}
-              {(['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN', 'Super Admin'].includes(user?.role)) ? (
+              {(['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN'].includes(user?.role)) ? (
                 <div className="panel-status success" style={{ marginTop: '0.75rem' }}>
                   <CheckCircle2 size={16} /> Access Granted
                 </div>

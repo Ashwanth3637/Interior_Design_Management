@@ -8,6 +8,7 @@ const designSchema = new mongoose.Schema({
         default: "3D Render",
     },
     fileUrl: { type: String, required: true },
+    isFavorite: { type: Boolean, default: false },
     uploadedAt: { type: Date, default: Date.now },
 });
 
@@ -21,7 +22,7 @@ const quotationSchema = new mongoose.Schema({
     taxGst: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
     validUntil: { type: Date },
-    status: { type: String, enum: ["Draft", "Sent to Client", "Accepted", "Rejected"], default: "Sent to Client" },
+    status: { type: String, enum: ["Draft", "Sent to Client", "Accepted", "Rejected", "Superseded", "Archived"], default: "Sent to Client" },
     generatedBy: { type: String, default: "Project Manager" },
     createdAt: { type: Date, default: Date.now },
 });
@@ -32,7 +33,7 @@ const invoiceSchema = new mongoose.Schema({
     installmentType: { type: String, default: "Advance Payment" },
     amount: { type: Number, required: true },
     paidAmount: { type: Number, default: 0 },
-    status: { type: String, enum: ["Pending", "Unpaid", "Paid", "Overdue"], default: "Pending" },
+    status: { type: String, enum: ["Pending", "Unpaid", "Payment Submitted", "Pending Verification", "Paid", "Overdue"], default: "Pending" },
     issueDate: { type: Date, default: Date.now },
     dueDate: { type: Date },
     paidDate: { type: Date },
@@ -141,7 +142,7 @@ const projectSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["Planning", "In Progress", "Review", "Completed", "On Hold"],
+            enum: ["Planning", "In Progress", "Review", "Verified", "Completed", "On Hold"],
             default: "Planning",
         },
         workflowStage: {
@@ -152,6 +153,7 @@ const projectSchema = new mongoose.Schema(
                 "Project Created",
                 "Designer Assigned",
                 "Design Upload",
+                "Design Uploaded",
                 "Client Review",
                 "Revision Requested",
                 "Design Approved",
@@ -159,6 +161,7 @@ const projectSchema = new mongoose.Schema(
                 "Quotation Approved",
                 "Quotation Rejected",
                 "Advance Payment Received",
+                "Advance Payment Cleared",
                 "PM Approval",
                 "Site Engineer Assigned",
                 "Material Procurement",
@@ -167,6 +170,9 @@ const projectSchema = new mongoose.Schema(
                 "Second Installment Quotation Generated",
                 "Second Installment Paid",
                 "Site Progress 90%",
+                "Awaiting PM Verification",
+                "Awaiting Admin Handover",
+                "Awaiting Client Handover",
                 "Final Installment Pending",
                 "Daily Progress Updates",
                 "Stage Payments",

@@ -17,6 +17,11 @@ const {
   respondQuotation,
   getAdminAnalytics,
   postMessage,
+  adminHandover,
+  toggleDesignFavorite,
+  seMarkCompleted,
+  pmVerifyCompletion,
+  reopenProject,
 } = require("../controllers/projectController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -25,6 +30,7 @@ router.route("/").get(protect, getProjects).post(protect, createProject);
 
 router.post("/:id/designs", protect, uploadDesign);
 router.delete("/:id/designs/:designId", protect, deleteDesign);
+router.put("/:id/designs/:designId/favorite", protect, toggleDesignFavorite);
 router.post("/:id/materials", protect, addMaterial);
 router.delete("/:id/materials/:materialId", protect, deleteMaterial);
 router.post("/:id/messages", protect, postMessage);
@@ -33,6 +39,10 @@ router.put("/:id/invoices/:invoiceId/pay", protect, payInvoice);
 router.put("/:id/approve-design", protect, approveDesign);
 router.put("/:id/respond-quotation", protect, respondQuotation);
 router.put("/:id/progress", protect, updateProgress);
+router.put("/:id/admin-handover", protect, adminHandover);
+router.put("/:id/reopen", protect, reopenProject);
+router.put("/:id/se-mark-completed", protect, seMarkCompleted);
+router.put("/:id/pm-verify-completion", protect, pmVerifyCompletion);
 
 router
   .route("/:id")

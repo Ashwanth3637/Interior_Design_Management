@@ -13,12 +13,14 @@ import {
   ChevronRight,
   ArrowLeft,
   Eye,
+  EyeOff,
   MapPin,
   Briefcase,
   Phone,
   Mail,
   Building,
-  FileText
+  FileText,
+  RotateCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -28,6 +30,13 @@ const ClientManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSpinning, setIsSpinning] = useState(false);
+
+  const handleManualRefresh = () => {
+    setIsSpinning(true);
+    fetchClients(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  };
 
   // Filters & Pagination
   const [search, setSearch] = useState('');
@@ -40,10 +49,12 @@ const ClientManagement = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [designersList, setDesignersList] = useState([]);
   const [engineersList, setEngineersList] = useState([]);
   const [pmList, setPmList] = useState([]);
   const [accountantsList, setAccountantsList] = useState([]);
+  const [salesList, setSalesList] = useState([]);
   const [formData, setFormData] = useState({
     clientId: '',
     fullName: '',
@@ -59,6 +70,7 @@ const ClientManagement = () => {
     siteEngineer: '',
     projectManager: '',
     accountant: '',
+    salesExecutive: '',
     status: 'Active'
   });
 
@@ -142,16 +154,23 @@ const ClientManagement = () => {
           ['ACCOUNTANT', 'Accountant', 'Finance'].includes(e.role) || e.department === 'Accounts' || e.department === 'Finance'
         );
 
+        // Filter Sales Executives strictly from Employee records
+        const sales = allEmployees.filter(e =>
+          ['SALES_EXECUTIVE', 'Sales Executive', 'Sales'].includes(e.role) || e.department === 'Sales'
+        );
+
         // Deduplicate by employee name
         const uniqueDesigners = Array.from(new Map(designers.map(item => [(item.name || item.fullName).trim(), item])).values());
         const uniqueEngineers = Array.from(new Map(engineers.map(item => [(item.name || item.fullName).trim(), item])).values());
         const uniquePms = Array.from(new Map(pms.map(item => [(item.name || item.fullName).trim(), item])).values());
         const uniqueAccountants = Array.from(new Map(accountants.map(item => [(item.name || item.fullName).trim(), item])).values());
+        const uniqueSales = Array.from(new Map(sales.map(item => [(item.name || item.fullName).trim(), item])).values());
 
         setDesignersList(uniqueDesigners);
         setEngineersList(uniqueEngineers);
         setPmList(uniquePms.length > 0 ? uniquePms : allEmployees);
         setAccountantsList(uniqueAccountants.length > 0 ? uniqueAccountants : allEmployees);
+        setSalesList(uniqueSales.length > 0 ? uniqueSales : allEmployees);
       }
     } catch (e) {
       console.error('Failed to fetch staff list', e);
@@ -200,7 +219,7 @@ const ClientManagement = () => {
       clientId: `CLT-${Math.floor(1000 + Math.random() * 9000)}`,
       fullName: '',
       email: '',
-      password: 'Client123!',
+      password: 'client123',
       phone: '',
       address: '',
       city: '',
@@ -211,6 +230,7 @@ const ClientManagement = () => {
       siteEngineer: '',
       projectManager: '',
       accountant: '',
+      salesExecutive: '',
       status: 'Active'
     });
     setIsModalOpen(true);
@@ -235,6 +255,7 @@ const ClientManagement = () => {
       siteEngineer: '',
       projectManager: '',
       accountant: '',
+      salesExecutive: '',
       status: clt.status || 'Active'
     });
     setIsModalOpen(true);
@@ -287,7 +308,7 @@ const ClientManagement = () => {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        const clientPass = formData.password || 'Client123!';
+        const clientPass = formData.password || 'client123';
         const createdMsg = editingId
           ? 'Client record updated successfully!'
           : `🎉 Client Created! Login Email: ${formData.email} | Password: ${clientPass}`;
@@ -342,7 +363,28 @@ const ClientManagement = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button
+            onClick={handleManualRefresh}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
+              padding: '0.75rem 1.1rem',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+              transition: 'all 0.2s ease'
+            }}
+            title="Refresh Clients List"
+          >
+            <RotateCw size={17} className={isSpinning ? 'spin-icon' : ''} style={{ color: '#2563eb' }} /> Refresh
+          </button>
           <img 
             src="/client_meeting_1786024318597.png" 
             alt="Client Consultation Meeting" 
@@ -562,7 +604,37 @@ const ClientManagement = () => {
 
               <div>
                 <label style={labelStyle}>Create Password</label>
-                <input type="password" name="password" placeholder="Enter password" value={formData.password} onChange={handleInputChange} style={inputStyle} />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    placeholder="Enter password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    style={{ ...inputStyle, paddingRight: '2.5rem' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '0.75rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748b',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0
+                    }}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -644,6 +716,18 @@ const ClientManagement = () => {
                   {accountantsList.map((a) => (
                     <option key={a._id || a.name} value={a.name || a.fullName}>
                       {a.name || a.fullName} ({a.role || 'Accountant'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Assign Sales Executive</label>
+                <select name="salesExecutive" value={formData.salesExecutive} onChange={handleInputChange} style={inputStyle}>
+                  <option value="">-- Select Sales Executive --</option>
+                  {salesList.map((s) => (
+                    <option key={s._id || s.name} value={s.name || s.fullName}>
+                      {s.name || s.fullName} ({s.role || 'Sales Executive'})
                     </option>
                   ))}
                 </select>

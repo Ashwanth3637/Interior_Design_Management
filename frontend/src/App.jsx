@@ -47,13 +47,13 @@ function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+              <ProtectedRoute allowedRoles={['Admin', 'ADMIN']}>
                 <AdminDashboard />
               </ProtectedRoute>
             }
           />
 
-          {/* Protected Routes */}
+          {/* Operational Routes */}
           <Route
             path="/dashboard"
             element={
@@ -73,7 +73,7 @@ function App() {
           <Route
             path="/projects"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['Admin', 'ADMIN', 'Project Manager', 'PROJECT_MANAGER', 'Interior Designer', 'INTERIOR_DESIGNER', 'Site Engineer', 'SITE_ENGINEER', 'Sales Executive', 'SALES_EXECUTIVE', 'Accountant', 'ACCOUNTANT']}>
                 <ProjectManagement />
               </ProtectedRoute>
             }
@@ -81,7 +81,7 @@ function App() {
           <Route
             path="/designer-studio"
             element={
-              <ProtectedRoute allowedRoles={['Designer', 'INTERIOR_DESIGNER', 'Interior Designer', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+              <ProtectedRoute allowedRoles={['Designer', 'INTERIOR_DESIGNER', 'Interior Designer', 'Admin', 'ADMIN']}>
                 <DesignerStudio />
               </ProtectedRoute>
             }
@@ -89,7 +89,7 @@ function App() {
           <Route
             path="/clients"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+              <ProtectedRoute allowedRoles={['Admin', 'ADMIN', 'Sales Executive', 'SALES_EXECUTIVE']}>
                 <ClientManagement />
               </ProtectedRoute>
             }
@@ -97,7 +97,7 @@ function App() {
           <Route
             path="/sales-executive"
             element={
-              <ProtectedRoute allowedRoles={['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+              <ProtectedRoute allowedRoles={['SALES_EXECUTIVE', 'Sales Executive', 'Admin', 'ADMIN']}>
                 <SalesExecutiveDashboard />
               </ProtectedRoute>
             }
@@ -105,7 +105,7 @@ function App() {
           <Route
             path="/accountant"
             element={
-              <ProtectedRoute allowedRoles={['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+              <ProtectedRoute allowedRoles={['ACCOUNTANT', 'Accountant', 'Admin', 'ADMIN']}>
                 <AccountantDashboard />
               </ProtectedRoute>
             }
@@ -113,7 +113,7 @@ function App() {
           <Route
             path="/pm-dashboard"
             element={
-              <ProtectedRoute allowedRoles={['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+              <ProtectedRoute allowedRoles={['PROJECT_MANAGER', 'Project Manager', 'Admin', 'ADMIN']}>
                 <ProjectManagerDashboard />
               </ProtectedRoute>
             }
@@ -121,7 +121,7 @@ function App() {
           <Route
             path="/site-engineer"
             element={
-              <ProtectedRoute allowedRoles={['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN']}>
+              <ProtectedRoute allowedRoles={['SITE_ENGINEER', 'Site Engineer', 'Admin', 'ADMIN']}>
                 <SiteEngineerDashboard />
               </ProtectedRoute>
             }
@@ -129,7 +129,7 @@ function App() {
           <Route
             path="/client-portal"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['Client', 'Admin', 'ADMIN']}>
                 <ClientPortal />
               </ProtectedRoute>
             }

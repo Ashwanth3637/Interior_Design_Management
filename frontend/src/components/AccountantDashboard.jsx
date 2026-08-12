@@ -17,7 +17,8 @@ import {
   Clock,
   AlertCircle,
   Layers,
-  FileCheck
+  FileCheck,
+  RotateCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
@@ -28,6 +29,13 @@ const AccountantDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSpinning, setIsSpinning] = useState(false);
+
+  const handleManualRefresh = () => {
+    setIsSpinning(true);
+    fetchAccountantData(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  };
 
   const [activeTab, setActiveTab] = useState('invoices'); // invoices, paymentTracking, expenses, receipts, reports
 
@@ -325,6 +333,27 @@ const AccountantDashboard = () => {
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button
+                onClick={handleManualRefresh}
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  padding: '0.65rem 1rem',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: '600',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Refresh Accountant Data"
+              >
+                <RotateCw size={16} className={isSpinning ? 'spin-icon' : ''} style={{ color: '#2563eb' }} /> Refresh
+              </button>
               <img 
                 src="/financial_reports_desk_1786024532449.png" 
                 alt="Accountant Financial Work" 
@@ -489,7 +518,7 @@ const AccountantDashboard = () => {
                           </td>
                           <td style={{ padding: '1rem 1.25rem' }}>
                             <span style={{ padding: '0.25rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700', backgroundColor: inv.status === 'Paid' ? '#f0fdf4' : '#fef2f2', color: inv.status === 'Paid' ? '#16a34a' : '#dc2626' }}>
-                              {inv.status}
+                              {inv.status === 'Paid' ? '✔ Payment Completed' : 'Unpaid / Pending'}
                             </span>
                           </td>
                           <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>

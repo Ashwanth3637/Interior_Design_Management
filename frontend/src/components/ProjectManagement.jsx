@@ -16,7 +16,8 @@ import {
   DollarSign,
   UserCheck,
   Building,
-  MapPin
+  MapPin,
+  RotateCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { designImages } from '../assets/images';
@@ -24,13 +25,22 @@ import { designImages } from '../assets/images';
 const ProjectManagement = () => {
   const { user } = useContext(AuthContext);
   const userRole = user?.role || '';
-  const isAdminOrPM = ['Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN', 'Project Manager', 'PROJECT_MANAGER'].includes(userRole);
+  const isSuperAdmin = ['Super Admin', 'SUPER_ADMIN'].includes(userRole);
+  const isAdmin = ['Admin', 'ADMIN'].includes(userRole);
+  const isAdminOrPM = ['Admin', 'ADMIN', 'Project Manager', 'PROJECT_MANAGER'].includes(userRole);
   const isDesigner = ['INTERIOR_DESIGNER', 'Interior Designer', 'Designer'].includes(userRole);
 
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSpinning, setIsSpinning] = useState(false);
+
+  const handleManualRefresh = () => {
+    setIsSpinning(true);
+    fetchProjects(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  };
 
   // Filters & Pagination
   const [search, setSearch] = useState('');
@@ -414,13 +424,34 @@ const ProjectManagement = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button
+            onClick={handleManualRefresh}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
+              padding: '0.75rem 1.1rem',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+              transition: 'all 0.2s ease'
+            }}
+            title="Refresh Projects List"
+          >
+            <RotateCw size={17} className={isSpinning ? 'spin-icon' : ''} style={{ color: '#2563eb' }} /> Refresh
+          </button>
           <img 
             src="/hero_living_room_1786022741605.png" 
             alt="Interior Project" 
             style={{ width: '130px', height: '80px', objectFit: 'cover', borderRadius: '12px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }} 
           />
-          {isAdminOrPM && (
+          {isAdminOrPM && !isSuperAdmin && (
             <button
               onClick={openAddModal}
               style={{
@@ -595,21 +626,73 @@ const ProjectManagement = () => {
                 </div>
 
                 {/* Footer Action Buttons */}
-                <div style={{ paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => openEditModal(prj)}
-                    style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                  >
-                    <Edit2 size={14} /> {isDesigner ? 'Update Design & Progress' : 'Edit Project'}
-                  </button>
-                  {isAdminOrPM && (
-                    <button
-                      onClick={() => handleDelete(prj._id)}
-                      style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                    >
-                      <Trash2 size={14} /> Delete
-                    </button>
-                  )}
+                <div style={{ paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+
+                  {/* Completion workflow status banner */}
+                  {prj.status === 'Completed' ? (
+                    <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '2px solid #16a34a', padding: '0.55rem 1rem', borderRadius: '8px', fontWeight: '800', color: '#15803d', fontSize: '0.82rem', textAlign: 'center' }}>
+                      🎉 Project Completed & Handed Over to Client!
+                    </div>
+                  ) : prj.status === 'Verified' || prj.workflowStage === 'Awaiting Admin Handover' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      <div style={{ background: 'linear-gradient(135deg, #fffbeb, #fef3c7)', border: '2px solid #d97706', padding: '0.4rem 0.75rem', borderRadius: '6px', fontWeight: '700', color: '#92400e', fontSize: '0.78rem', textAlign: 'center' }}>
+                        ⚠️ PM Verified — Final Client Handover Required
+                      </div>
+                      {/* Only Admin can perform final handover */}
+                      {isAdmin ? (
+                        <button
+                          onClick={async () => {
+                            if (window.confirm(`Perform final client handover for "${prj.projectName}"?\n\nThis will mark the project as officially Completed.`)) {
+                              try {
+                                const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+                                const res = await fetch(`http://localhost:5001/api/projects/${prj._id}/admin-handover`, {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+                                });
+                                const result = await res.json();
+                                if (res.ok && result.success) {
+                                  setSuccessMsg(`🎉 ${result.message}`);
+                                  fetchProjects(true);
+                                } else {
+                                  alert(`⚠️ ${result.message || 'Handover failed'}`);
+                                }
+                              } catch (err) { alert('Network error performing handover'); }
+                            }
+                          }}
+                          style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', color: '#ffffff', border: 'none', padding: '0.55rem 1rem', borderRadius: '8px', fontWeight: '800', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(220,38,38,0.35)', letterSpacing: '0.01em' }}
+                        >
+                          🤝 Complete Final Client Handover
+                        </button>
+                      ) : (
+                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.4rem 0.75rem', borderRadius: '6px', color: '#64748b', fontSize: '0.78rem', fontWeight: '600', textAlign: 'center' }}>
+                          🔒 Admin Action Required for Handover
+                        </div>
+                      )}
+                    </div>
+                  ) : prj.status === 'Review' || prj.workflowStage === 'Awaiting PM Verification' ? (
+                    <div style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '2px solid #2563eb', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '700', color: '#1d4ed8', fontSize: '0.78rem', textAlign: 'center' }}>
+                      ⏳ Awaiting PM Verification
+                    </div>
+                  ) : null}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                    {prj.status !== 'Completed' && !isSuperAdmin && (
+                      <button
+                        onClick={() => openEditModal(prj)}
+                        style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                      >
+                        <Edit2 size={14} /> {isDesigner ? 'Update Design & Progress' : 'Edit Project'}
+                      </button>
+                    )}
+                    {isAdminOrPM && !isSuperAdmin && (
+                      <button
+                        onClick={() => handleDelete(prj._id)}
+                        style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

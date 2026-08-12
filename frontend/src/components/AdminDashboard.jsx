@@ -18,7 +18,8 @@ import {
   UserPlus,
   ArrowLeft,
   LogOut,
-  FolderOpen
+  FolderOpen,
+  DollarSign
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -97,52 +98,66 @@ const AdminDashboard = () => {
             </span>
           </div>
 
-          <div className="analytics-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '1.25rem' }}>
+          <div className="analytics-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '1rem' }}>
             {/* 1. Total Employees */}
-            <div className="kpi-card kpi-card-blue" style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: '4px solid #2563eb', padding: '1.2rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div className="kpi-icon-box bg-blue-light text-blue" style={{ width: '46px', height: '46px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Users size={24} />
+            <div className="kpi-card kpi-card-blue" style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: '4px solid #2563eb', padding: '1.2rem 0.9rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="kpi-icon-box bg-blue-light text-blue" style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Users size={22} />
               </div>
               <div className="kpi-content">
                 <span className="kpi-label" style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Total Staff</span>
-                <h2 className="kpi-number" style={{ fontSize: '1.75rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>{stats ? stats.totalEmployees : '...'}</h2>
-                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Registered Employees</span>
+                <h2 className="kpi-number" style={{ fontSize: '1.65rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>{stats ? stats.totalEmployees : '...'}</h2>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Registered Staff</span>
               </div>
             </div>
 
             {/* 2. Total Clients */}
-            <div className="kpi-card kpi-card-indigo" style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: '4px solid #475569', padding: '1.2rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div className="kpi-icon-box bg-indigo-light text-indigo" style={{ width: '46px', height: '46px', borderRadius: '10px', background: '#f8fafc', color: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <UserCheck size={24} />
+            <div className="kpi-card kpi-card-indigo" style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: '4px solid #475569', padding: '1.2rem 0.9rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="kpi-icon-box bg-indigo-light text-indigo" style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#f8fafc', color: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <UserCheck size={22} />
               </div>
               <div className="kpi-content">
                 <span className="kpi-label" style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Total Clients</span>
-                <h2 className="kpi-number" style={{ fontSize: '1.75rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>{stats ? stats.totalClients : '...'}</h2>
+                <h2 className="kpi-number" style={{ fontSize: '1.65rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>{stats ? stats.totalClients : '...'}</h2>
                 <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Client Accounts</span>
               </div>
             </div>
 
             {/* 3. Active Projects */}
-            <div className="kpi-card kpi-card-amber" style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: '4px solid #d97706', padding: '1.2rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div className="kpi-icon-box bg-amber-light text-amber" style={{ width: '46px', height: '46px', borderRadius: '10px', background: '#fffbeb', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Briefcase size={24} />
+            <div className="kpi-card kpi-card-amber" style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: '4px solid #d97706', padding: '1.2rem 0.9rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="kpi-icon-box bg-amber-light text-amber" style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#fffbeb', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Briefcase size={22} />
               </div>
               <div className="kpi-content">
                 <span className="kpi-label" style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Active Projects</span>
-                <h2 className="kpi-number" style={{ fontSize: '1.75rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>{stats ? stats.activeProjects : '...'}</h2>
+                <h2 className="kpi-number" style={{ fontSize: '1.65rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>{stats ? stats.activeProjects : '...'}</h2>
                 <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Ongoing Projects</span>
               </div>
             </div>
 
             {/* 4. Completed Projects */}
-            <div className="kpi-card kpi-card-emerald" style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: '4px solid #059669', padding: '1.2rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div className="kpi-icon-box bg-emerald-light text-emerald" style={{ width: '46px', height: '46px', borderRadius: '10px', background: '#f0fdf4', color: '#047857', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CheckCircle2 size={24} />
+            <div className="kpi-card kpi-card-emerald" style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: '4px solid #059669', padding: '1.2rem 0.9rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="kpi-icon-box bg-emerald-light text-emerald" style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#f0fdf4', color: '#047857', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CheckCircle2 size={22} />
               </div>
               <div className="kpi-content">
                 <span className="kpi-label" style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Completed</span>
-                <h2 className="kpi-number" style={{ fontSize: '1.75rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>{stats ? stats.completedProjects : '...'}</h2>
-                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Delivered Milestones</span>
+                <h2 className="kpi-number" style={{ fontSize: '1.65rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>{stats ? stats.completedProjects : '...'}</h2>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Delivered Projects</span>
+              </div>
+            </div>
+
+            {/* 5. Total Project Revenue */}
+            <div className="kpi-card kpi-card-purple" style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: '4px solid #4f46e5', padding: '1.2rem 0.9rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="kpi-icon-box bg-purple-light text-purple" style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#eef2ff', color: '#3730a3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <DollarSign size={22} />
+              </div>
+              <div className="kpi-content">
+                <span className="kpi-label" style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Total Revenue</span>
+                <h2 className="kpi-number" style={{ fontSize: '1.65rem', fontWeight: '800', margin: 0, color: '#0f172a' }}>
+                  {stats ? `₹${(stats.totalRevenue || 0).toLocaleString('en-IN')}` : '...'}
+                </h2>
+                <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: '700' }}>💰 Project Revenue</span>
               </div>
             </div>
           </div>

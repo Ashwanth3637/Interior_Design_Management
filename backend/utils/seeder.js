@@ -81,7 +81,7 @@ const seedData = async () => {
           await User.create({
             name: client.fullName,
             email: client.email.toLowerCase(),
-            password: 'Client123!',
+            password: 'client123',
             role: 'Client',
             phone: client.phone || '',
           });

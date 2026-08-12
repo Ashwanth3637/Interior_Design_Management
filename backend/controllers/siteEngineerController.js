@@ -1,5 +1,6 @@
 const Project = require("../models/project");
 const SiteWork = require("../models/SiteWork");
+const { createNotification } = require("../utils/notificationHelper");
 
 // @desc    Get all projects assigned to Site Engineer
 // @route   GET /api/site-engineer/projects
@@ -33,14 +34,9 @@ exports.getAssignedProjects = async (req, res) => {
 
     let projects = await Project.find(query).sort({ updatedAt: -1 });
 
-    // Fallback: If no projects matched specifically by regex, search all active projects with assigned site engineer
-    if (projects.length === 0 && !['Admin', 'ADMIN', 'Super Admin'].includes(req.user?.role)) {
-      projects = await Project.find({
-        $or: [
-          { siteEngineer: { $regex: engineerName || firstName || "Riyas", $options: "i" } },
-          { siteEngineer: { $exists: true, $ne: "" } }
-        ]
-      }).sort({ updatedAt: -1 });
+    // Fallback: If no projects matched by specific engineer name, return all projects so Site Engineer can manage site work
+    if (projects.length === 0) {
+      projects = await Project.find({}).sort({ updatedAt: -1 });
     }
 
     // Fetch associated SiteWork details for each project
@@ -301,28 +297,78 @@ exports.updateProgress = async (req, res) => {
     project.progressPercentage = newPct;
     if (status) project.status = status;
 
-    // Automatic Milestone Triggers
-    if (newPct >= 60 && newPct < 90 && project.workflowStage !== "Second Installment Quotation Generated" && project.workflowStage !== "Second Installment Paid") {
-      project.workflowStage = "Site Progress 60%";
-    } else if (newPct >= 90) {
-      if (newPct === 100) {
-        project.status = "Completed";
-        project.workflowStage = "Project Completed";
-      } else {
-        project.workflowStage = "Site Progress 90%";
-      }
+    // Check if client approved estimated materials & quotation
+    const hasAcceptedQuotation = project.quotationApproved || (project.quotations && project.quotations.some(q => q.status === 'Accepted'));
+    if (newPct > 0 && !hasAcceptedQuotation) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot start site execution before Client approves estimated materials and quotation price."
+      });
+    }
 
-      // Auto-generate Final Installment Invoice for Client (20% of total budget) if not already generated
-      project.invoices = project.invoices || [];
+    // 1. Check 20% Advance Payment Gate (0% -> 50%)
+    const isAdvanceCleared = project.advancePaymentPaid || (project.invoices && project.invoices.some(i => (i.installmentType === 'Advance Payment' || i.installmentType === 'Advance' || i.title?.includes('Advance')) && i.status === 'Paid'));
+
+    if (newPct > 0 && !isAdvanceCleared) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot start or update site execution before 20% Advance Payment is cleared by client."
+      });
+    }
+
+    // 2. Check 60% 2nd Installment Gate (> 60% progress)
+    const secondInvoice = project.invoices?.find(i => i.installmentType === 'Second Installment' || i.title?.includes('Second'));
+    const isSecondPaid = secondInvoice && secondInvoice.status === 'Paid';
+    if (newPct > 60 && secondInvoice && !isSecondPaid) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update site execution past 60% before Client clears the 60% 2nd Installment Payment Invoice."
+      });
+    }
+
+    // 3. Check 20% Final Installment Gate (100% progress)
+    const finalInvoice = project.invoices?.find(i => i.installmentType === 'Final Installment' || i.title?.includes('Final'));
+    const isFinalPaid = finalInvoice && finalInvoice.status === 'Paid';
+    if (newPct >= 100 && finalInvoice && !isFinalPaid) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot mark project as 100% completed before Client clears the 20% Final Payment Invoice."
+      });
+    }
+
+    project.invoices = project.invoices || [];
+    const totalBudget = project.budget || 500000;
+
+    // 1. Mid-Execution Milestone (50% - 89% Progress): Auto-generate 60% Second Installment Invoice
+    if (newPct >= 50 && newPct < 90) {
+      const has2ndInvoice = project.invoices.some(
+        (inv) => inv.installmentType === "Second Installment" || inv.title.includes("Second")
+      );
+      if (!has2ndInvoice) {
+        const amount60Pct = Math.round(totalBudget * 0.60);
+        const count = project.invoices.length + 1;
+        project.invoices.push({
+          invoiceNumber: `INV-${project.projectId}-${count}`,
+          title: "60% Second Installment Invoice",
+          installmentType: "Second Installment",
+          amount: amount60Pct,
+          paidAmount: 0,
+          status: "Unpaid",
+          dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+          notes: `60% Second installment payment (₹${amount60Pct.toLocaleString('en-IN')}) automatically issued upon reaching ${newPct}% site execution progress.`,
+        });
+      }
+      project.workflowStage = "Site Progress 60%";
+    }
+
+    // 2. Final Handover Milestone (90% - 100% Progress): Auto-generate 20% Final Payment Invoice
+    if (newPct >= 90) {
       const hasFinalInvoice = project.invoices.some(
         (inv) => inv.installmentType === "Final Installment" || inv.title.includes("Final")
       );
-
       if (!hasFinalInvoice) {
-        const totalBudget = project.budget || 500000;
-        const finalAmount = Math.round(totalBudget * 0.2); // 20% Final Payment Balance
+        const finalAmount = Math.round(totalBudget * 0.20);
         const count = project.invoices.length + 1;
-
         project.invoices.push({
           invoiceNumber: `INV-${project.projectId}-${count}`,
           title: "20% Final Payment & Handover Invoice",
@@ -330,23 +376,66 @@ exports.updateProgress = async (req, res) => {
           amount: finalAmount,
           paidAmount: 0,
           status: "Unpaid",
-          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-          notes: "Final payment balance due upon 90-100% site execution completion & client handover.",
+          dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+          notes: `Final 20% payment balance (₹${finalAmount.toLocaleString('en-IN')}) due upon 100% site execution & client handover.`,
         });
       }
+      if (newPct < 100) {
+        project.workflowStage = "Site Progress 90%";
+      } else {
+        project.status = "Review";
+        project.workflowStage = "Awaiting PM Verification";
+      }
+    }
+
+    // Dispatch Notifications to PM & Client safely
+    try {
+      if (newPct >= 50 && newPct < 90) {
+        if (project.clientEmail) {
+          createNotification({
+            recipientEmail: project.clientEmail,
+            recipientRole: 'Client',
+            title: '🏗️ Site Progress Update (60%) & 2nd Installment Invoice',
+            message: `Site Engineer updated project execution progress to ${newPct}%. Your 60% Second Installment invoice is ready under Invoices & Payments.`,
+            projectId: project.projectId,
+            link: '/client-portal'
+          }).catch(err => console.error("Notification error:", err));
+        }
+        createNotification({
+          recipientRole: 'Project Manager',
+          title: '🏗️ Site Progress Reached 60%',
+          message: `Site Engineer ${req.user?.name || ''} updated project '${project.projectName}' progress to ${newPct}%. 60% Second Installment invoice generated.`,
+          projectId: project.projectId,
+          link: '/pm-dashboard'
+        }).catch(err => console.error("Notification error:", err));
+      } else if (newPct >= 90) {
+        if (project.clientEmail) {
+          createNotification({
+            recipientEmail: project.clientEmail,
+            recipientRole: 'Client',
+            title: '🏁 Site Progress 90% & 20% Final Payment Invoice Issued',
+            message: `Site execution has reached ${newPct}%! Your 20% Final Payment Invoice has been issued under Invoices & Payments. Please complete payment for final handover.`,
+            projectId: project.projectId,
+            link: '/client-portal'
+          }).catch(err => console.error("Notification error:", err));
+        }
+        createNotification({
+          recipientRole: 'Project Manager',
+          title: `🏗️ Site Progress Reached ${newPct}%`,
+          message: `Site Engineer ${req.user?.name || ''} updated project '${project.projectName}' progress to ${newPct}%. 20% Final Payment invoice generated.`,
+          projectId: project.projectId,
+          link: '/pm-dashboard'
+        }).catch(err => console.error("Notification error:", err));
+      }
+    } catch (notifErr) {
+      console.error("Non-fatal notification dispatch error:", notifErr);
     }
 
     await project.save();
 
     res.status(200).json({
       success: true,
-      message: `Site progress updated to ${newPct}%. ${
-        newPct >= 90
-          ? "20% Final Payment Invoice issued to Client Dashboard!"
-          : newPct >= 60
-          ? "2nd Installment stage triggered for Project Manager!"
-          : ""
-      }`,
+      message: `Site progress updated to ${newPct}%.`,
       data: project,
     });
   } catch (error) {

@@ -30,7 +30,9 @@ import {
   PartyPopper,
   MessageSquare,
   Upload,
-  QrCode
+  QrCode,
+  RotateCw,
+  Heart
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import WorkflowStepper from './WorkflowStepper';
@@ -42,17 +44,129 @@ const ClientPortal = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSpinning, setIsSpinning] = useState(false);
 
-  // Design Approval state
+  const handleManualRefresh = () => {
+    setIsSpinning(true);
+    fetchClientPortal(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  };
+  const [activeTab, setActiveTab] = useState('overview');
+  const [selectedQuotationDoc, setSelectedQuotationDoc] = useState(null);
+
+  // Design Approval & Favorites state
   const [feedback, setFeedback] = useState('');
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
   const [approvalBanner, setApprovalBanner] = useState(false);
+  const [favoriteDesignIds, setFavoriteDesignIds] = useState([]);
+  const [designFilter, setDesignFilter] = useState('all'); // 'all' or 'favorites'
+
+  const toggleFavoriteDesign = async (ds) => {
+    const designKey = ds?._id || ds?.title;
+    setFavoriteDesignIds(prev =>
+      prev.includes(designKey) ? prev.filter(k => k !== designKey) : [...prev, designKey]
+    );
+
+    if (project?._id && (ds?._id || ds?.title)) {
+      try {
+        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+        const targetId = ds._id || encodeURIComponent(ds.title);
+        await fetch(`http://localhost:5001/api/projects/${project._id}/designs/${targetId}/favorite`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+        });
+        fetchClientPortal(false);
+      } catch (err) {
+        console.error('Error toggling design favorite:', err);
+      }
+    }
+  };
+
+  const handleSendFavoritesToDesigner = async () => {
+    if (!project || !project.designs) return;
+    const selectedDesigns = project.designs.filter(d => favoriteDesignIds.includes(d._id || d.title));
+    if (selectedDesigns.length === 0) {
+      alert("Please click the heart icon (❤️) on at least one design proposal card to shortlist it first!");
+      return;
+    }
+    const titles = selectedDesigns.map(d => `"${d.title}"`).join(', ');
+    const msg = `Hi ${project.assignedDesigner || 'Designer'}, I have reviewed the design proposals and shortlisted my favorite concepts: ${titles}. Please proceed with these!`;
+
+    try {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5001/api/projects/${project._id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message: msg })
+      });
+      if (res.ok) {
+        alert(`🎉 Shortlisted concepts (${selectedDesigns.length}) sent to Designer ${project.assignedDesigner || ''}!`);
+        fetchClientPortal(true);
+      }
+    } catch (err) {
+      alert('Network error sending shortlisted concepts to designer');
+    }
+  };
 
   // Simulated Payment Modal state
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+
+  // Payment Receipt Modal state
+  const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+
+  // Quotation Rejection Modal state
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectingQuotationId, setRejectingQuotationId] = useState(null);
+  const [rejectionQueries, setRejectionQueries] = useState('');
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+
+  const openQuotationRejectModal = (qId) => {
+    setRejectingQuotationId(qId);
+    setRejectionQueries('');
+    setIsRejectModalOpen(true);
+  };
+
+  const submitQuotationRejectionModal = async (e) => {
+    e?.preventDefault();
+    if (!project || !rejectingQuotationId) return;
+    if (!rejectionQueries.trim()) {
+      alert("Please enter your queries or cost revision comments for the Project Manager!");
+      return;
+    }
+
+    try {
+      setIsSubmittingReject(true);
+      const activeToken = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5001/api/projects/${project._id}/respond-quotation`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${activeToken}`
+        },
+        body: JSON.stringify({
+          quotationId: rejectingQuotationId,
+          status: 'Rejected',
+          rejectionReason: rejectionQueries.trim()
+        })
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setSuccessMsg("❌ Quotation queries sent to Project Manager! PM will review your comments & issue a revised quotation.");
+        setIsRejectModalOpen(false);
+        setRejectionQueries('');
+        fetchClientPortal(true);
+      } else {
+        alert(result.message || 'Failed to submit quotation rejection queries');
+      }
+    } catch (err) {
+      alert('Network error submitting quotation queries to Project Manager');
+    } finally {
+      setIsSubmittingReject(false);
+    }
+  };
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Image Preview Modal state
@@ -87,8 +201,15 @@ const ClientPortal = () => {
       const result = await res.json();
       if (res.ok && result.success) {
         setData(result.data);
-        if (result.data?.projects?.[0]?.clientFeedback && isInitial) {
-          setFeedback(result.data.projects[0].clientFeedback);
+        const proj = result.data?.projects?.[0];
+        if (proj) {
+          if (proj.clientFeedback && isInitial) {
+            setFeedback(proj.clientFeedback);
+          }
+          if (proj.designs) {
+            const favs = proj.designs.filter(d => d.isFavorite).map(d => d._id || d.title);
+            setFavoriteDesignIds(favs);
+          }
         }
       } else {
         if (isInitial) setError(result.message || 'Unable to load client portal data');
@@ -301,18 +422,26 @@ const ClientPortal = () => {
   };
 
   // Default / Real Timeline Data Fallback
+  const hasUploadedDesigns = project?.designs && project.designs.length > 0;
+  const hasDesigner = !!project?.assignedDesigner;
+
   const defaultTimelineEvents = [
     { phase: 'Lead Registered', date: '05 Aug 2026', status: 'Completed', description: 'Client lead registered into sales workflow pipeline.' },
-    { phase: 'Designer Assigned', date: '06 Aug 2026', status: 'Completed', description: 'Interior designer assigned to create 2D/3D proposals.' },
-    { phase: 'Design Uploaded', date: '08 Aug 2026', status: 'Completed', description: 'Initial 2D floor plans & 3D renders uploaded to portal.' },
-    { phase: 'Client Approved', date: '10 Aug 2026', status: project?.designApprovalStatus === 'Approved' ? 'Completed' : 'In Progress', description: 'Final 2D/3D design layout approved by client.' },
+    { phase: 'Designer Assigned', date: '06 Aug 2026', status: hasDesigner ? 'Completed' : 'Pending', description: 'Interior designer assigned to create 2D/3D proposals.' },
+    { phase: 'Design Uploaded', date: '08 Aug 2026', status: hasUploadedDesigns ? 'Completed' : (hasDesigner ? 'Pending' : 'Pending'), description: 'Initial 2D floor plans & 3D renders uploaded to portal.' },
+    { phase: 'Client Approved', date: '10 Aug 2026', status: project?.designApprovalStatus === 'Approved' ? 'Completed' : (hasUploadedDesigns ? 'In Progress' : 'Pending'), description: 'Final 2D/3D design layout approved by client.' },
     { phase: 'Quotation Sent', date: '12 Aug 2026', status: (project?.quotations?.length || 0) > 0 ? 'Completed' : 'Pending', description: 'Official itemized project budget quotation issued by PM.' },
-    { phase: 'Payment Completed', date: '14 Aug 2026', status: project?.advancePaymentPaid ? 'Completed' : 'Pending', description: '10% Booking advance or invoice payment confirmed.' },
-    { phase: 'Site Execution', date: '20 Aug 2026', status: (project?.progressPercentage || 0) > 0 ? 'In Progress' : 'Pending', description: 'On-site execution, carpentry, and electrical works.' }
+    { phase: 'Payment Completed', date: '14 Aug 2026', status: (project?.advancePaymentPaid || (project?.invoices && project.invoices.some(i => i.status === 'Paid'))) ? 'Completed' : 'Pending', description: '20% Advance payment confirmed.' },
+    { phase: 'Site Execution', date: '20 Aug 2026', status: (project?.progressPercentage || 0) >= 100 ? 'Completed' : ((project?.progressPercentage || 0) > 0 ? 'In Progress' : 'Pending'), description: 'On-site execution, carpentry, and electrical works.' }
   ];
 
   const timelineToDisplay = project?.timeline && project.timeline.length > 0 
-    ? project.timeline 
+    ? project.timeline.map(tm => {
+        if (tm.phase === 'Design Uploaded' || tm.phase === 'Design Upload') {
+          return { ...tm, status: hasUploadedDesigns ? 'Completed' : 'Pending' };
+        }
+        return tm;
+      })
     : defaultTimelineEvents;
 
   return (
@@ -371,7 +500,28 @@ const ClientPortal = () => {
         </div>
 
         {/* Improved Client Header Profile Widget */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button
+            onClick={handleManualRefresh}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
+              padding: '0.65rem 1rem',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontWeight: '600',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+              transition: 'all 0.2s ease'
+            }}
+            title="Refresh Client Portal"
+          >
+            <RotateCw size={16} className={isSpinning ? 'spin-icon' : ''} style={{ color: '#2563eb' }} /> Refresh
+          </button>
           <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '0.65rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.85rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
             <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
               <User size={22} />
@@ -431,6 +581,62 @@ const ClientPortal = () => {
         </div>
       ) : (
         <div>
+          {/* Official Project Handover Celebration Banner & Overall Quotation Download Card */}
+          {(project.status === 'Completed' || project.workflowStage === 'Project Completed') && (
+            <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '2px solid #16a34a', padding: '1.5rem', borderRadius: '16px', marginBottom: '1.5rem', boxShadow: '0 4px 14px rgba(22, 163, 74, 0.15)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ fontSize: '2.5rem' }}>🎉</div>
+                <div>
+                  <h3 style={{ margin: '0 0 0.25rem 0', color: '#15803d', fontSize: '1.25rem', fontWeight: '800' }}>
+                    Project Officially Completed & Handed Over!
+                  </h3>
+                  <p style={{ margin: 0, color: '#166534', fontSize: '0.9rem', fontWeight: '600' }}>
+                    Congratulations! Your interior design project "{project.projectName}" has passed final quality verification and been officially handed over by management. Thank you for choosing us!
+                  </p>
+                </div>
+              </div>
+
+              {/* Overall Quotation & Document Download Bar */}
+              {project.quotations && project.quotations.length > 0 && (
+                <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <FileText size={28} color="#16a34a" />
+                    <div>
+                      <strong style={{ color: '#0f172a', fontSize: '0.95rem', display: 'block' }}>📄 Overall Final Project Quotation Document</strong>
+                      <span style={{ color: '#64748b', fontSize: '0.85rem' }}>
+                        Total Final Contract Value: <strong style={{ color: '#16a34a' }}>₹{(project.quotations.find(q => q.status === 'Accepted') || project.quotations[project.quotations.length - 1])?.totalAmount?.toLocaleString('en-IN') || project.budget?.toLocaleString('en-IN')}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.6rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetQ = project.quotations.find(q => q.status === 'Accepted') || project.quotations[project.quotations.length - 1];
+                        setSelectedQuotationDoc(targetQ);
+                      }}
+                      style={{ backgroundColor: '#ffffff', color: '#16a34a', border: '1px solid #16a34a', padding: '0.55rem 1.1rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}
+                    >
+                      <Eye size={16} /> View Overall Quotation
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetQ = project.quotations.find(q => q.status === 'Accepted') || project.quotations[project.quotations.length - 1];
+                        setSelectedQuotationDoc(targetQ);
+                        setTimeout(() => window.print(), 300);
+                      }}
+                      style={{ backgroundColor: '#16a34a', color: '#ffffff', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '8px', fontWeight: '800', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)' }}
+                    >
+                      <Download size={16} /> Download Quotation PDF
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Main Project Overview Card */}
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '2rem', marginBottom: '2rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -483,6 +689,17 @@ const ClientPortal = () => {
               </div>
             </div>
 
+            {/* 100% Progress Status Banner (Shown when site work is 100% completed but awaiting admin handover) */}
+            {project.status !== 'Completed' && (project.progressPercentage >= 100 || project.status === 'Verified' || project.workflowStage === 'Awaiting Admin Handover' || project.status === 'Review') ? (
+              <div style={{ background: 'linear-gradient(135deg, #fffbeb, #fef3c7)', border: '2px solid #d97706', padding: '1rem 1.25rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#92400e', boxShadow: '0 2px 8px rgba(217, 119, 6, 0.15)' }}>
+                <Clock size={24} color="#d97706" />
+                <div>
+                  <strong style={{ fontSize: '1rem', display: 'block' }}>⏳ 100% Site Work Completed — Waiting for Admin Approval & Final Handover</strong>
+                  <span style={{ fontSize: '0.85rem', color: '#b45309' }}>Site execution is 100% complete! Project Manager has verified the work, and it is currently awaiting final Admin approval and handover.</span>
+                </div>
+              </div>
+            ) : null}
+
             {/* Improved Progress Visualization */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', fontWeight: '700', color: '#334155', marginBottom: '0.5rem' }}>
@@ -490,12 +707,12 @@ const ClientPortal = () => {
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ color: '#2563eb' }}>{project.progressPercentage || 0}% Completed</span>
                   <span style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: '500', marginLeft: '0.5rem' }}>
-                    ({project.progressPercentage === 100 ? 'Completed on 12 Aug 2026' : 'In Progress'})
+                    ({project.status === 'Completed' ? 'Handed Over' : (project.progressPercentage >= 100 || project.status === 'Verified') ? 'Awaiting Admin Handover' : 'In Progress'})
                   </span>
                 </div>
               </div>
               <div style={{ width: '100%', height: '12px', backgroundColor: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden', padding: '2px', boxSizing: 'border-box' }}>
-                <div style={{ width: `${project.progressPercentage || 0}%`, height: '100%', backgroundColor: '#2563eb', borderRadius: '9999px', transition: 'width 0.5s ease-in-out' }} />
+                <div style={{ width: `${project.progressPercentage || 0}%`, height: '100%', backgroundColor: (project.progressPercentage >= 100 || project.status === 'Completed') ? '#16a34a' : '#2563eb', borderRadius: '9999px', transition: 'width 0.5s ease-in-out' }} />
               </div>
             </div>
           </div>
@@ -518,7 +735,7 @@ const ClientPortal = () => {
               onClick={() => setActiveTab('quotation')}
               style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: activeTab === 'quotation' ? 'none' : '1px solid #cbd5e1', backgroundColor: activeTab === 'quotation' ? '#2563eb' : '#ffffff', color: activeTab === 'quotation' ? '#ffffff' : '#475569', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <FileText size={16} /> Official Quotation ({project.quotations?.length || 0})
+              <FileText size={16} /> Official Quotation ({project?.quotations ? project.quotations.filter((q, idx, arr) => q.status !== 'Superseded' && q.status !== 'Archived' && (q.status !== 'Sent to Client' && q.status !== 'Pending' || idx === arr.map(item => item.status === 'Sent to Client' || item.status === 'Pending').lastIndexOf(true))).length : 0})
             </button>
             <button
               onClick={() => setActiveTab('invoices')}
@@ -538,12 +755,6 @@ const ClientPortal = () => {
             >
               <MessageSquare size={16} /> Designer Chat ({project.projectMessages?.length || 0})
             </button>
-            <button
-              onClick={() => setActiveTab('timeline')}
-              style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: activeTab === 'timeline' ? 'none' : '1px solid #cbd5e1', backgroundColor: activeTab === 'timeline' ? '#2563eb' : '#ffffff', color: activeTab === 'timeline' ? '#ffffff' : '#475569', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-            >
-              <Calendar size={16} /> Project Timeline
-            </button>
           </div>
 
           {/* Tab Content Display */}
@@ -560,178 +771,282 @@ const ClientPortal = () => {
                 </p>
 
                 {(!project.designs || project.designs.length === 0) ? (
-                  <div>
-                    <div style={{ backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe', padding: '1rem 1.25rem', marginBottom: '1.5rem', color: '#1e40af', fontSize: '0.85rem' }}>
-                      ✨ Showing curated 3D interior design concepts for your project layout:
+                  <div style={{ backgroundColor: '#f8fafc', padding: '3rem 1.5rem', textAlign: 'center', color: '#64748b', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#f3e8ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem' }}>
+                      🎨
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 260px))', gap: '1.25rem' }}>
-                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#ffffff', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-                        <div className="design-card-img-wrapper" onClick={() => setPreviewImage({ title: 'Living Room Concept', fileUrl: designImages.livingRoom, designType: '3D Render' })} style={{ height: '140px' }}>
-                          <img src={designImages.livingRoom} alt="Living Room" className="design-card-img" />
-                          <div className="design-card-overlay">
-                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#0f172a', padding: '0.4rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <Eye size={16} color="#2563eb" /> Preview
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ padding: '0.95rem' }}>
-                          <h4 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '800' }}>Living Room Modern Concept</h4>
-                          <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '600' }}>3D Render • Approved</span>
-                        </div>
-                      </div>
-
-                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#ffffff', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-                        <div className="design-card-img-wrapper" onClick={() => setPreviewImage({ title: 'Luxury Modular Kitchen', fileUrl: designImages.kitchen, designType: '3D Render' })} style={{ height: '140px' }}>
-                          <img src={designImages.kitchen} alt="Modular Kitchen" className="design-card-img" />
-                          <div className="design-card-overlay">
-                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#0f172a', padding: '0.4rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <Eye size={16} color="#2563eb" /> Preview
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ padding: '0.95rem' }}>
-                          <h4 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '800' }}>Luxury Oak Modular Kitchen</h4>
-                          <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '600' }}>3D Render • Under Review</span>
-                        </div>
-                      </div>
-
-                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#ffffff', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-                        <div className="design-card-img-wrapper" onClick={() => setPreviewImage({ title: 'Master Bedroom Suite', fileUrl: designImages.bedroom, designType: '3D Render' })} style={{ height: '140px' }}>
-                          <img src={designImages.bedroom} alt="Master Bedroom" className="design-card-img" />
-                          <div className="design-card-overlay">
-                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#0f172a', padding: '0.4rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <Eye size={16} color="#2563eb" /> Preview
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ padding: '0.95rem' }}>
-                          <h4 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '800' }}>Master Bedroom Suite</h4>
-                          <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '600' }}>3D Render • Approved</span>
-                        </div>
-                      </div>
+                    <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '1.05rem', marginTop: '0.2rem' }}>
+                      No design proposals uploaded yet
                     </div>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', maxWidth: '420px' }}>
+                      Your interior designer {project.assignedDesigner ? <strong>({project.assignedDesigner})</strong> : null} will upload 2D floor plans & 3D render proposals here once ready.
+                    </p>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 260px))', gap: '1.25rem' }}>
-                    {project.designs.filter(ds => !ds.designType || ds.designType === '3D Render').map((ds, idx) => (
-                      <div key={ds._id || idx} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#ffffff', boxShadow: '0 2px 6px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                        <div>
-                          {/* Image Hover Zoom & Overlay */}
-                          <div
-                            className="design-card-img-wrapper"
-                            onClick={() => setPreviewImage(ds)}
-                            style={{ height: '140px' }}
-                          >
-                            <img
-                              src={ds.fileUrl}
-                              alt={ds.title}
-                              className="design-card-img"
-                            />
-                            <div className="design-card-overlay">
-                              <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#0f172a', padding: '0.4rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <Eye size={16} color="#2563eb" /> Preview
+                  <div>
+                    {/* Shortlist & Favorites Filter Bar */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => setDesignFilter('all')}
+                          style={{
+                            backgroundColor: designFilter === 'all' ? '#2563eb' : '#ffffff',
+                            color: designFilter === 'all' ? '#ffffff' : '#475569',
+                            border: designFilter === 'all' ? 'none' : '1px solid #cbd5e1',
+                            padding: '0.45rem 0.85rem',
+                            borderRadius: '8px',
+                            fontWeight: '700',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          All Proposals ({project.designs.length})
+                        </button>
+                        <button
+                          onClick={() => setDesignFilter('favorites')}
+                          style={{
+                            backgroundColor: designFilter === 'favorites' ? '#ef4444' : '#ffffff',
+                            color: designFilter === 'favorites' ? '#ffffff' : '#475569',
+                            border: designFilter === 'favorites' ? 'none' : '1px solid #cbd5e1',
+                            padding: '0.45rem 0.85rem',
+                            borderRadius: '8px',
+                            fontWeight: '700',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                          }}
+                        >
+                          <Heart size={14} fill={designFilter === 'favorites' ? '#ffffff' : 'none'} color={designFilter === 'favorites' ? '#ffffff' : '#ef4444'} /> My Shortlisted Favorites ({favoriteDesignIds.length})
+                        </button>
+                      </div>
+
+                      {favoriteDesignIds.length > 0 && (
+                        <button
+                          onClick={handleSendFavoritesToDesigner}
+                          style={{
+                            backgroundColor: '#16a34a',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '8px',
+                            fontWeight: '800',
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            boxShadow: '0 2px 8px rgba(22, 163, 74, 0.25)'
+                          }}
+                        >
+                          <Heart size={15} fill="#ffffff" /> Send Shortlisted Concepts to {project.assignedDesigner || 'Designer'}
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 260px))', gap: '1.25rem' }}>
+                      {project.designs
+                        .filter(ds => designFilter === 'all' || favoriteDesignIds.includes(ds._id || ds.title))
+                        .map((ds, idx) => {
+                          const designKey = ds._id || ds.title || `design-${idx}`;
+                          const isFav = favoriteDesignIds.includes(designKey);
+
+                          return (
+                            <div key={designKey} style={{ border: `1.5px solid ${isFav ? '#fca5a5' : '#e2e8f0'}`, borderRadius: '14px', overflow: 'hidden', backgroundColor: '#ffffff', boxShadow: isFav ? '0 4px 12px rgba(239, 68, 68, 0.12)' : '0 2px 6px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                              <div>
+                                {/* Image Hover Zoom & Overlay */}
+                                <div
+                                  className="design-card-img-wrapper"
+                                  style={{ height: '140px', position: 'relative' }}
+                                >
+                                  {/* Heart Shortlist Toggle Button */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleFavoriteDesign(ds);
+                                    }}
+                                    style={{
+                                      position: 'absolute',
+                                      top: '8px',
+                                      left: '8px',
+                                      backgroundColor: isFav ? '#ef4444' : 'rgba(15, 23, 42, 0.75)',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: '9999px',
+                                      padding: '0.3rem 0.65rem',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.3rem',
+                                      fontSize: '0.72rem',
+                                      fontWeight: '700',
+                                      zIndex: 10,
+                                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                                    }}
+                                    title={isFav ? "Remove from shortlisted favorites" : "Shortlist as favorite concept"}
+                                  >
+                                    <Heart size={14} fill={isFav ? '#ffffff' : 'none'} color="#ffffff" /> {isFav ? 'Shortlisted ❤️' : 'Shortlist'}
+                                  </button>
+
+                                  <img
+                                    src={ds.fileUrl}
+                                    alt={ds.title}
+                                    className="design-card-img"
+                                    onClick={() => setPreviewImage(ds)}
+                                  />
+                                  <div className="design-card-overlay" onClick={() => setPreviewImage(ds)}>
+                                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#0f172a', padding: '0.4rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                      <Eye size={16} color="#2563eb" /> Preview
+                                    </div>
+                                  </div>
+                                  <div style={{ position: 'absolute', top: '8px', right: '8px', backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#ffffff', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: '700' }}>
+                                    {ds.designType || '3D Render'}
+                                  </div>
+                                </div>
+
+                                {/* Improved Design Card Content */}
+                                <div style={{ padding: '0.95rem' }}>
+                                  <h4 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '800', lineHeight: '1.3' }}>
+                                    {ds.title || 'Bedroom Interior'}
+                                  </h4>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.35rem' }}>
+                                    <span style={{ fontSize: '0.75rem', backgroundColor: isFav ? '#fef2f2' : '#f1f5f9', color: isFav ? '#dc2626' : '#475569', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '700' }}>
+                                      {isFav ? '❤️ Shortlisted Concept' : (ds.versionName || 'Version 1')}
+                                    </span>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>
+                                      Uploaded: {new Date(ds.uploadedAt || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div style={{ position: 'absolute', top: '8px', right: '8px', backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#ffffff', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: '700' }}>
-                              {ds.designType || '3D Render'}
-                            </div>
-                          </div>
 
-                          {/* Improved Design Card Content */}
-                          <div style={{ padding: '0.95rem' }}>
-                            <h4 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '0.95rem', fontWeight: '800', lineHeight: '1.3' }}>
-                              {ds.title || 'Bedroom Interior'}
-                            </h4>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.35rem' }}>
-                              <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '600' }}>
-                                {ds.versionName || 'Version 2'}
-                              </span>
-                              <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>
-                                Uploaded: {new Date(ds.uploadedAt || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Action buttons (Replaced confusing red X with Request Revision) */}
-                        <div style={{ padding: '0 0.95rem 0.95rem 0.95rem' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {/* Action buttons - Uniform Single Line Buttons */}
+                        <div style={{ padding: '0 0.85rem 0.85rem 0.85rem' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                             <button
                               onClick={() => setPreviewImage(ds)}
-                              style={{ flex: 1, backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.55rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                              style={{
+                                flex: 1,
+                                backgroundColor: '#2563eb',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '0.45rem 0.6rem',
+                                borderRadius: '8px',
+                                fontSize: '0.78rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.3rem',
+                                whiteSpace: 'nowrap',
+                                height: '34px'
+                              }}
                             >
-                              <Eye size={15} /> Preview HD 3D Render
+                              <Eye size={14} /> Preview
                             </button>
                             <button
                               onClick={() => handleRequestConceptRevision(ds.title)}
                               title="Request Revision for this concept"
-                              style={{ backgroundColor: '#fff7ed', border: '1px solid #ffedd5', color: '#ea580c', padding: '0.5rem 0.75rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
+                              style={{
+                                backgroundColor: '#fff7ed',
+                                border: '1px solid #ffedd5',
+                                color: '#ea580c',
+                                padding: '0.45rem 0.65rem',
+                                borderRadius: '8px',
+                                fontSize: '0.78rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.3rem',
+                                whiteSpace: 'nowrap',
+                                height: '34px'
+                              }}
                             >
-                              <RotateCcw size={13} /> Request Revision
+                              <RotateCcw size={13} /> Revision
                             </button>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+                {/* Material Catalogue Table with Prerequisite Check */}
+                {project.designApprovalStatus === 'Approved' ? (
+                  <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0' }}>
+                    <h4 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '1.1rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Layers size={18} color="#2563eb" /> Material Catalogue & Cost Breakdown
+                    </h4>
+                    <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                      Material details shared by your designer {project.assignedDesigner ? <strong>({project.assignedDesigner})</strong> : null}.
+                    </p>
+
+                    {!project.materials || project.materials.length === 0 ? (
+                      <div style={{ backgroundColor: '#f8fafc', padding: '2.5rem 1.5rem', textAlign: 'center', color: '#64748b', borderRadius: '12px', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+                          📦
+                        </div>
+                        <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '1rem', marginTop: '0.2rem' }}>
+                          Material catalogue will appear once your designer uploads it.
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+                          <thead style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <tr>
+                              <th style={{ padding: '0.85rem 1.25rem' }}>Material Item</th>
+                              <th style={{ padding: '0.85rem 1.25rem' }}>Brand</th>
+                              <th style={{ padding: '0.85rem 1.25rem' }}>Quantity</th>
+                              <th style={{ padding: '0.85rem 1.25rem' }}>Estimated Cost</th>
+                              <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {project.materials.map((m, i) => (
+                              <tr key={m._id || i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a' }}>{m.materialName}</td>
+                                <td style={{ padding: '0.85rem 1.25rem', color: '#475569' }}>{m.brand}</td>
+                                <td style={{ padding: '0.85rem 1.25rem', color: '#334155' }}>{m.quantity} {m.unit}</td>
+                                <td style={{ padding: '0.85rem 1.25rem', fontWeight: '700', color: '#16a34a' }}>₹{m.estimatedPrice?.toLocaleString('en-IN')}</td>
+                                <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
+                                  <span style={{ backgroundColor: '#f0fdf4', color: '#16a34a', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700' }}>
+                                    {m.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                            <tr style={{ backgroundColor: '#f8fafc', fontWeight: '700' }}>
+                              <td colSpan="3" style={{ padding: '0.85rem 1.25rem', color: '#0f172a' }}>Total Estimated Material Cost</td>
+                              <td style={{ padding: '0.85rem 1.25rem', color: '#16a34a', fontSize: '1rem' }}>
+                                ₹{project.materials.reduce((acc, curr) => acc + (curr.estimatedPrice || 0), 0).toLocaleString('en-IN')}
+                              </td>
+                              <td></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0' }}>
+                    <div style={{ backgroundColor: '#fffbeb', color: '#b45309', border: '1.5px solid #fde68a', padding: '1.25rem', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontWeight: '800', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', marginBottom: '0.35rem' }}>
+                        🔒 Material Catalogue & Estimated Price Locked
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#92400e' }}>
+                        Please review and approve the 2D & 3D Design Proposals above first. Once approved, designer <strong>{project.assignedDesigner || 'Haasly Vijay'}</strong> will upload itemized material specs & estimated prices here!
+                      </p>
+                    </div>
                   </div>
                 )}
-
-                {/* Material Catalogue Table with Friendly Empty State */}
-                <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0' }}>
-                  <h4 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '1.1rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Layers size={18} color="#2563eb" /> Material Catalogue & Cost Breakdown
-                  </h4>
-                  <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                    Material details shared by your designer {project.assignedDesigner ? <strong>({project.assignedDesigner})</strong> : null}.
-                  </p>
-
-                  {!project.materials || project.materials.length === 0 ? (
-                    <div style={{ backgroundColor: '#f8fafc', padding: '2.5rem 1.5rem', textAlign: 'center', color: '#64748b', borderRadius: '12px', border: '1px border #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                      <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-                        📦
-                      </div>
-                      <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '1rem', marginTop: '0.2rem' }}>
-                        Material catalogue will appear once your designer uploads it.
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-                        <thead style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          <tr>
-                            <th style={{ padding: '0.85rem 1.25rem' }}>Material Item</th>
-                            <th style={{ padding: '0.85rem 1.25rem' }}>Brand</th>
-                            <th style={{ padding: '0.85rem 1.25rem' }}>Quantity</th>
-                            <th style={{ padding: '0.85rem 1.25rem' }}>Estimated Cost</th>
-                            <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {project.materials.map((m, i) => (
-                            <tr key={m._id || i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a' }}>{m.materialName}</td>
-                              <td style={{ padding: '0.85rem 1.25rem', color: '#475569' }}>{m.brand}</td>
-                              <td style={{ padding: '0.85rem 1.25rem', color: '#334155' }}>{m.quantity} {m.unit}</td>
-                              <td style={{ padding: '0.85rem 1.25rem', fontWeight: '700', color: '#16a34a' }}>₹{m.estimatedPrice?.toLocaleString('en-IN')}</td>
-                              <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                                <span style={{ backgroundColor: '#f0fdf4', color: '#16a34a', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700' }}>
-                                  {m.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                          <tr style={{ backgroundColor: '#f8fafc', fontWeight: '700' }}>
-                            <td colSpan="3" style={{ padding: '0.85rem 1.25rem', color: '#0f172a' }}>Total Estimated Material Cost</td>
-                            <td style={{ padding: '0.85rem 1.25rem', color: '#16a34a', fontSize: '1rem' }}>
-                              ₹{project.materials.reduce((acc, curr) => acc + (curr.estimatedPrice || 0), 0).toLocaleString('en-IN')}
-                            </td>
-                            <td></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
               </div>
             )}
 
@@ -757,6 +1072,25 @@ const ClientPortal = () => {
                       <p style={{ margin: 0, color: '#15803d', fontSize: '0.875rem' }}>
                         Project Manager and Interior Designer have been notified to initiate official quotation and site execution phases.
                       </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Shortlisted Favorite Concepts Preview Card */}
+                {project.designs && project.designs.some(d => d.isFavorite || favoriteDesignIds.includes(d._id || d.title)) && (
+                  <div style={{ backgroundColor: '#fef2f2', border: '1.5px solid #fca5a5', padding: '1rem 1.25rem', borderRadius: '12px', marginBottom: '1.25rem' }}>
+                    <div style={{ color: '#dc2626', fontWeight: '800', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                      <Heart size={16} fill="#dc2626" /> Your Shortlisted Favorite Concepts ({project.designs.filter(d => d.isFavorite || favoriteDesignIds.includes(d._id || d.title)).length})
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 160px))', gap: '0.65rem' }}>
+                      {project.designs.filter(d => d.isFavorite || favoriteDesignIds.includes(d._id || d.title)).map((d, idx) => (
+                        <div key={d._id || idx} style={{ border: '1px solid #fecdd3', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#ffffff' }}>
+                          <img src={d.fileUrl} alt={d.title} style={{ width: '100%', height: '80px', objectFit: 'cover' }} />
+                          <div style={{ padding: '0.35rem 0.5rem', fontSize: '0.72rem', fontWeight: '700', color: '#881337', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {d.title}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -822,96 +1156,149 @@ const ClientPortal = () => {
                   </div>
                 ) : (
                   <div>
-                    {project.quotations.map((q, idx) => (
-                      <div key={idx} style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem', marginBottom: '1rem' }}>
-                          <div>
-                            <span style={{ backgroundColor: '#eff6ff', color: '#2563eb', fontSize: '0.75rem', fontWeight: '700', padding: '0.2rem 0.6rem', borderRadius: '9999px' }}>
-                              Quotation #{idx + 1}
+                    {project.quotations
+                      .filter((q, idx, arr) => {
+                        if (q.status === 'Superseded' || q.status === 'Archived') return false;
+                        if (q.status === 'Sent to Client' || q.status === 'Pending') {
+                          const latestSentIdx = arr.map(item => item.status === 'Sent to Client' || item.status === 'Pending').lastIndexOf(true);
+                          if (idx !== latestSentIdx) return false;
+                        }
+                        return true;
+                      })
+                      .map((q, originalIdx, filteredArr) => ({
+                        ...q,
+                        originalIndex: originalIdx,
+                        originalNumber: originalIdx + 1,
+                        isLatest: originalIdx === filteredArr.length - 1
+                      }))
+                      .sort((a, b) => {
+                        const getPrio = (item) => {
+                          if (item.status === 'Accepted') return 1;
+                          if (item.status === 'Sent to Client' || item.status === 'Pending') return 2;
+                          if (item.status === 'Rejected') return 3;
+                          return 4;
+                        };
+                        const pA = getPrio(a);
+                        const pB = getPrio(b);
+                        if (pA !== pB) return pA - pB;
+                        return b.originalIndex - a.originalIndex;
+                      })
+                      .map((q, idx) => (
+                        <div key={q._id || idx} style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: q.isLatest && q.status !== 'Rejected' ? '2px solid #3b82f6' : '1px solid #e2e8f0', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: q.isLatest ? '0 4px 12px rgba(59, 130, 246, 0.15)' : '0 1px 3px rgba(0,0,0,0.05)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ backgroundColor: '#eff6ff', color: '#2563eb', fontSize: '0.75rem', fontWeight: '700', padding: '0.2rem 0.6rem', borderRadius: '9999px' }}>
+                                Quotation #{q.originalNumber} {q.isLatest ? '(Latest)' : ''}
+                              </span>
+                            </div>
+                            <span style={{
+                              backgroundColor: q.status === 'Accepted' ? '#f0fdf4' : q.status === 'Rejected' ? '#fef2f2' : '#eff6ff',
+                              color: q.status === 'Accepted' ? '#16a34a' : q.status === 'Rejected' ? '#dc2626' : '#2563eb',
+                              border: `1px solid ${q.status === 'Accepted' ? '#bbf7d0' : q.status === 'Rejected' ? '#fca5a5' : '#bfdbfe'}`,
+                              padding: '0.35rem 0.85rem',
+                              borderRadius: '9999px',
+                              fontSize: '0.8rem',
+                              fontWeight: '700'
+                            }}>
+                              Status: {q.status === 'Rejected' ? 'Rejected' : q.status === 'Accepted' ? 'Approved' : q.status}
                             </span>
                           </div>
-                          <span style={{ backgroundColor: '#f0fdf4', color: '#16a34a', padding: '0.35rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '700' }}>
-                            Status: {q.status}
-                          </span>
-                        </div>
 
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-                          <thead style={{ backgroundColor: '#f8fafc', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>
-                            <tr>
-                              <th style={{ padding: '0.85rem 1.25rem' }}>Cost Item / Category</th>
-                              <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Amount (₹)</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Package size={16} color="#2563eb" /> Material Cost
-                              </td>
-                              <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.materialCost?.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Wrench size={16} color="#2563eb" /> Labour & Execution Cost
-                              </td>
-                              <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.labourCost?.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Palette size={16} color="#2563eb" /> 2D/3D Design Charges
-                              </td>
-                              <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.designCharges?.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Armchair size={16} color="#2563eb" /> Custom Furniture & Carpentry
-                              </td>
-                              <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.furnitureCost?.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Zap size={16} color="#2563eb" /> Electrical & Plumbing Works
-                              </td>
-                              <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.electricalPlumbingCost?.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                              <td style={{ padding: '0.85rem 1.25rem', fontWeight: '700', color: '#475569' }}>Subtotal (Before Tax)</td>
-                              <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#475569' }}>₹{(q.materialCost + q.labourCost + q.designCharges + q.furnitureCost + q.electricalPlumbingCost)?.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                              <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#64748b' }}>🏛️ GST & Government Taxes (18%)</td>
-                              <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#64748b' }}>₹{q.taxGst?.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr style={{ backgroundColor: '#f0fdf4', fontWeight: '800' }}>
-                              <td style={{ padding: '1rem 1.25rem', color: '#15803d', fontSize: '1.05rem' }}>Total Contract Price</td>
-                              <td style={{ padding: '1rem 1.25rem', textAlign: 'right', color: '#15803d', fontSize: '1.25rem' }}>₹{q.totalAmount?.toLocaleString('en-IN')}</td>
-                            </tr>
-                          </tbody>
-                        </table>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                            <thead style={{ backgroundColor: '#f8fafc', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                              <tr>
+                                <th style={{ padding: '0.85rem 1.25rem' }}>Cost Item / Category</th>
+                                <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Amount (₹)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <Package size={16} color="#2563eb" /> Material Cost
+                                </td>
+                                <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.materialCost?.toLocaleString('en-IN')}</td>
+                              </tr>
+                              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <Wrench size={16} color="#2563eb" /> Labour & Execution Cost
+                                </td>
+                                <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.labourCost?.toLocaleString('en-IN')}</td>
+                              </tr>
+                              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <Palette size={16} color="#2563eb" /> 2D/3D Design Charges
+                                </td>
+                                <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.designCharges?.toLocaleString('en-IN')}</td>
+                              </tr>
+                              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <Armchair size={16} color="#2563eb" /> Custom Furniture & Carpentry
+                                </td>
+                                <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.furnitureCost?.toLocaleString('en-IN')}</td>
+                              </tr>
+                              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <Zap size={16} color="#2563eb" /> Electrical & Plumbing Works
+                                </td>
+                                <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>₹{q.electricalPlumbingCost?.toLocaleString('en-IN')}</td>
+                              </tr>
+                              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: '0.85rem 1.25rem', fontWeight: '700', color: '#475569' }}>Subtotal (Before Tax)</td>
+                                <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#475569' }}>₹{(q.materialCost + q.labourCost + q.designCharges + q.furnitureCost + q.electricalPlumbingCost)?.toLocaleString('en-IN')}</td>
+                              </tr>
+                              <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: '0.85rem 1.25rem', fontWeight: '600', color: '#64748b' }}>🏛️ GST & Government Taxes (18%)</td>
+                                <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '700', color: '#64748b' }}>₹{q.taxGst?.toLocaleString('en-IN')}</td>
+                              </tr>
+                              <tr style={{ backgroundColor: '#f0fdf4', fontWeight: '800' }}>
+                                <td style={{ padding: '1rem 1.25rem', color: '#15803d', fontSize: '1.05rem' }}>Total Contract Price</td>
+                                <td style={{ padding: '1rem 1.25rem', textAlign: 'right', color: '#15803d', fontSize: '1.25rem' }}>₹{q.totalAmount?.toLocaleString('en-IN')}</td>
+                              </tr>
+                            </tbody>
+                          </table>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', color: '#64748b', backgroundColor: '#f8fafc', padding: '0.85rem 1.25rem', borderRadius: '10px', flexWrap: 'wrap', gap: '0.75rem' }}>
-                          <div>
-                            <span>Generated by: <strong>{q.generatedBy || 'Project Manager'}</strong></span> • <span>Valid Until: <strong>{q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-IN') : '30 Days'}</strong></span>
-                          </div>
-                          
-                          {q.status !== 'Accepted' && (
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <button
-                                onClick={() => handleRespondQuotation(q._id, 'Accepted')}
-                                style={{ backgroundColor: '#16a34a', color: '#ffffff', border: 'none', padding: '0.45rem 1rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 6px rgba(22, 163, 74, 0.25)' }}
-                              >
-                                <CheckCircle size={14} /> Approve Quotation
-                              </button>
-                              <button
-                                onClick={() => handleRespondQuotation(q._id, 'Rejected')}
-                                style={{ backgroundColor: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', padding: '0.45rem 0.85rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-                              >
-                                <X size={14} /> Reject
-                              </button>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', color: '#64748b', backgroundColor: '#f8fafc', padding: '0.85rem 1.25rem', borderRadius: '10px', flexWrap: 'wrap', gap: '0.75rem' }}>
+                            <div>
+                              <span>Generated by: <strong>{q.generatedBy || 'Project Manager'}</strong></span> • <span>Valid Until: <strong>{q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-IN') : '30 Days'}</strong></span>
                             </div>
-                          )}
+                            
+                            {/* Only show Action Buttons on the LATEST pending quotation */}
+                            {q.status !== 'Rejected' && q.status !== 'Accepted' && q.isLatest ? (
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  onClick={() => handleRespondQuotation(q._id, 'Accepted')}
+                                  style={{ backgroundColor: '#16a34a', color: '#ffffff', border: 'none', padding: '0.45rem 1rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 6px rgba(22, 163, 74, 0.25)' }}
+                                >
+                                  <CheckCircle size={14} /> Approve Quotation
+                                </button>
+                                <button
+                                  onClick={() => openQuotationRejectModal(q._id)}
+                                  style={{ backgroundColor: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', padding: '0.45rem 0.85rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                                >
+                                  <X size={14} /> Reject & Request Revision
+                                </button>
+                              </div>
+                            ) : q.status === 'Rejected' ? (
+                              <span style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', padding: '0.35rem 0.85rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <X size={14} /> Rejected by Client
+                              </span>
+                            ) : q.status === 'Accepted' ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.35rem 0.85rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                  <CheckCircle size={14} /> Quotation Approved
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedQuotationDoc(q)}
+                                  style={{ backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                                >
+                                  <Eye size={14} /> View & Download PDF
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </div>
@@ -957,10 +1344,20 @@ const ClientPortal = () => {
                       </thead>
                       <tbody>
                         {project.invoices
-                          .filter((inv) => {
+                          .filter((inv, idx, array) => {
+                            const progress = project.progressPercentage || 0;
                             const isFinal = inv.installmentType === 'Final Installment' || inv.title?.includes('Final');
-                            if (isFinal && (project.progressPercentage || 0) < 90) {
-                              return false;
+                            // Final invoice: ONLY show when site progress is 90% or above
+                            if (isFinal && progress < 90) return false;
+
+                            const isSecond = inv.installmentType === 'Second Installment' || inv.title?.includes('Second');
+                            // 2nd installment: ONLY show when site progress is 50% or above
+                            if (isSecond && progress < 50) return false;
+
+                            const isAdvance = inv.installmentType?.includes('Advance') || inv.title?.includes('Advance');
+                            if (isAdvance && inv.status === 'Unpaid') {
+                              const latestAdvanceIdx = array.map(i => i.installmentType?.includes('Advance') || i.title?.includes('Advance')).lastIndexOf(true);
+                              if (idx !== latestAdvanceIdx) return false;
                             }
                             return true;
                           })
@@ -969,17 +1366,17 @@ const ClientPortal = () => {
                             <td style={{ padding: '1rem 1.25rem', fontWeight: '700', color: '#2563eb' }}>{inv.invoiceNumber}</td>
                             <td style={{ padding: '1rem 1.25rem', fontWeight: '600', color: '#0f172a' }}>{inv.title}</td>
                             <td style={{ padding: '1rem 1.25rem', color: '#16a34a', fontWeight: '700' }}>₹{inv.amount?.toLocaleString('en-IN')}</td>
-                            <td style={{ padding: '1rem 1.25rem' }}>
+                             <td style={{ padding: '1rem 1.25rem' }}>
                               <span style={{
-                                backgroundColor: inv.status === 'Paid' ? '#f0fdf4' : '#fef2f2',
-                                border: `1px solid ${inv.status === 'Paid' ? '#bbf7d0' : '#fecaca'}`,
-                                color: inv.status === 'Paid' ? '#16a34a' : '#dc2626',
+                                backgroundColor: inv.status === 'Paid' ? '#f0fdf4' : inv.status === 'Pending Verification' ? '#fffbeb' : '#fef2f2',
+                                border: `1px solid ${inv.status === 'Paid' ? '#bbf7d0' : inv.status === 'Pending Verification' ? '#fde68a' : '#fecaca'}`,
+                                color: inv.status === 'Paid' ? '#16a34a' : inv.status === 'Pending Verification' ? '#b45309' : '#dc2626',
                                 padding: '0.25rem 0.65rem',
                                 borderRadius: '9999px',
                                 fontSize: '0.75rem',
                                 fontWeight: '700'
                               }}>
-                                {inv.status === 'Paid' ? 'Paid ✔' : 'Unpaid'}
+                                {inv.status === 'Paid' ? 'Paid ✔' : inv.status === 'Pending Verification' ? '⏳ Awaiting Verification' : 'Unpaid'}
                               </span>
                             </td>
                             <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
@@ -990,6 +1387,10 @@ const ClientPortal = () => {
                                 >
                                   <Download size={14} /> View Receipt
                                 </button>
+                              ) : inv.status === 'Pending Verification' ? (
+                                <div style={{ backgroundColor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '700', display: 'inline-block' }}>
+                                  ⏳ Payment Submitted to Accounts
+                                </div>
                               ) : (
                                 <button
                                   onClick={() => {
@@ -1153,91 +1554,7 @@ const ClientPortal = () => {
               </div>
             )}
 
-            {/* 5. TIMELINE TAB - REAL VERTICAL TIMELINE */}
-            {activeTab === 'timeline' && (
-              <div>
-                <h3 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Calendar size={20} color="#2563eb" /> Renovation Phase Timeline
-                </h3>
-                <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.75rem' }}>
-                  Live milestone statuses updated by Project Manager <strong>{project.projectManager || 'Project Lead'}</strong>.
-                </p>
 
-                <div style={{ position: 'relative', paddingLeft: '1rem' }}>
-                  {/* Vertical Connecting Line */}
-                  <div style={{ position: 'absolute', left: '23px', top: '10px', bottom: '20px', width: '2px', backgroundColor: '#e2e8f0', zIndex: 0 }} />
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative', zIndex: 1 }}>
-                    {timelineToDisplay.map((tm, idx) => {
-                      const isDone = tm.status === 'Completed';
-                      const isInProg = tm.status === 'In Progress';
-
-                      return (
-                        <div key={tm._id || idx} style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
-                          {/* Timeline Node Checkmark Icon */}
-                          <div style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            backgroundColor: isDone ? '#16a34a' : isInProg ? '#2563eb' : '#ffffff',
-                            border: `2px solid ${isDone ? '#16a34a' : isInProg ? '#2563eb' : '#cbd5e1'}`,
-                            color: isDone || isInProg ? '#ffffff' : '#94a3b8',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justify: 'center',
-                            flexShrink: 0,
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                          }}>
-                            {isDone ? <CheckCircle2 size={16} /> : isInProg ? <Clock size={16} /> : <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />}
-                          </div>
-
-                          {/* Timeline Card Details */}
-                          <div style={{
-                            flex: 1,
-                            backgroundColor: '#ffffff',
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0',
-                            padding: '1rem 1.25rem',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-                            display: 'flex',
-                            justify: 'space-between',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: '0.75rem'
-                          }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                <h4 style={{ margin: 0, color: '#0f172a', fontSize: '1rem', fontWeight: '800' }}>
-                                  {isDone ? '✔' : ''} {tm.phase}
-                                </h4>
-                                <span style={{
-                                  fontSize: '0.75rem',
-                                  fontWeight: '700',
-                                  padding: '0.15rem 0.55rem',
-                                  borderRadius: '9999px',
-                                  backgroundColor: isDone ? '#f0fdf4' : isInProg ? '#eff6ff' : '#f8fafc',
-                                  color: isDone ? '#16a34a' : isInProg ? '#2563eb' : '#64748b',
-                                  border: `1px solid ${isDone ? '#bbf7d0' : isInProg ? '#bfdbfe' : '#cbd5e1'}`
-                                }}>
-                                  {tm.status}
-                                </span>
-                              </div>
-                              <p style={{ margin: '0.3rem 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
-                                {tm.description}
-                              </p>
-                            </div>
-
-                            <div style={{ color: '#475569', fontWeight: '700', fontSize: '0.85rem', backgroundColor: '#f8fafc', padding: '0.35rem 0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                              🗓️ {tm.date || tm.scheduledDate || 'Milestone Target'}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -1383,6 +1700,135 @@ const ClientPortal = () => {
                 style={{ flex: 1, padding: '0.65rem', borderRadius: '8px', border: 'none', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)' }}
               >
                 <Download size={15} /> Print / Save Receipt PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OVERALL QUOTATION PDF / VIEWER MODAL */}
+      {selectedQuotationDoc && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1300, padding: '1.5rem' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '18px', maxWidth: '750px', width: '100%', padding: '2.25rem', border: '1px solid #e2e8f0', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+            <button
+              onClick={() => setSelectedQuotationDoc(null)}
+              style={{ position: 'absolute', top: '18px', right: '18px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', cursor: 'pointer' }}
+            >
+              <X size={18} />
+            </button>
+
+            {/* Document Printable Content */}
+            <div id="printable-quotation-document" style={{ fontFamily: "'Inter', sans-serif" }}>
+              {/* Header Company Info */}
+              <div style={{ borderBottom: '2px solid #2563eb', paddingBottom: '1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#0f172a', fontWeight: '800', fontSize: '1.35rem', marginBottom: '0.2rem' }}>
+                    <Palette size={26} color="#2563eb" /> Luxury Interior Design Studio
+                  </div>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>
+                    Official Architectural & Interior Renovation Contract
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.35rem 0.85rem', borderRadius: '20px', fontWeight: '800', fontSize: '0.8rem', display: 'inline-block' }}>
+                    {project.status === 'Completed' ? 'OFFICIALLY HANDED OVER' : 'APPROVED CONTRACT'}
+                  </span>
+                  <div style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: '#64748b' }}>
+                    Date: <strong>{new Date().toLocaleDateString('en-IN')}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Client & Project Specs */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', backgroundColor: '#f8fafc', padding: '1rem 1.25rem', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }}>Client Details</span>
+                  <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>{project.clientName || user?.name}</strong>
+                  <div style={{ color: '#475569', fontSize: '0.8rem' }}>{project.clientEmail || user?.email} • {project.clientPhone}</div>
+                  <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Location: {project.location}</div>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }}>Project Details</span>
+                  <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>{project.projectName} ({project.projectId})</strong>
+                  <div style={{ color: '#475569', fontSize: '0.8rem' }}>Designer: {project.assignedDesigner || 'Rahul'}</div>
+                  <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Site Engineer: {project.siteEngineer || project.projectManager || 'Jasper'}</div>
+                </div>
+              </div>
+
+              {/* Itemized Cost Breakdown Table */}
+              <h4 style={{ margin: '0 0 0.75rem 0', color: '#0f172a', fontSize: '1rem', fontWeight: '700' }}>Overall Final Itemized Cost Breakdown</h4>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderRadius: '6px 0 0 0' }}>Item Description / Work Category</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right', borderRadius: '0 6px 0 0' }}>Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: '600', color: '#334155' }}>📦 Material Specifications & Procurement</td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: '700' }}>₹{(selectedQuotationDoc.materialCost || 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: '600', color: '#334155' }}>🔧 On-Site Labour & Carpentry Execution</td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: '700' }}>₹{(selectedQuotationDoc.labourCost || 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: '600', color: '#334155' }}>🎨 2D/3D Concept Design & Blueprinting</td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: '700' }}>₹{(selectedQuotationDoc.designCharges || 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: '600', color: '#334155' }}>🛋️ Custom Furniture & Woodwork Fittings</td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: '700' }}>₹{(selectedQuotationDoc.furnitureCost || 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: '600', color: '#334155' }}>⚡ Electrical Fixtures & Plumbing Infrastructure</td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: '700' }}>₹{(selectedQuotationDoc.electricalPlumbingCost || 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                  <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: '700', color: '#475569' }}>Subtotal (Before Tax)</td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: '700', color: '#475569' }}>
+                      ₹{((selectedQuotationDoc.materialCost || 0) + (selectedQuotationDoc.labourCost || 0) + (selectedQuotationDoc.designCharges || 0) + (selectedQuotationDoc.furnitureCost || 0) + (selectedQuotationDoc.electricalPlumbingCost || 0)).toLocaleString('en-IN')}
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                    <td style={{ padding: '0.75rem 1rem', color: '#64748b' }}>🏛️ Applicable GST & Government Taxes (18%)</td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: '700', color: '#64748b' }}>₹{(selectedQuotationDoc.taxGst || 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                  <tr style={{ backgroundColor: '#f0fdf4' }}>
+                    <td style={{ padding: '1rem', color: '#15803d', fontSize: '1rem', fontWeight: '800' }}>Total Contract Price</td>
+                    <td style={{ padding: '1rem', textAlign: 'right', color: '#15803d', fontSize: '1.25rem', fontWeight: '800' }}>₹{(selectedQuotationDoc.totalAmount || 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Signatures & Seal Footer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px dashed #cbd5e1', fontSize: '0.8rem', color: '#64748b' }}>
+                <div>
+                  <span>Authorized Signature: <strong>Management / Admin</strong></span>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Luxury Interior Design Management System</div>
+                </div>
+                <div style={{ textAlign: 'right', fontWeight: '700', color: '#16a34a' }}>
+                  ✔ VERIFIED & HANDED OVER
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ marginTop: '1.75rem', display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedQuotationDoc(null)}
+                style={{ flex: 1, padding: '0.7rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', fontWeight: '600', cursor: 'pointer' }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                style={{ flex: 1, padding: '0.7rem', borderRadius: '8px', border: 'none', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)' }}
+              >
+                <Download size={16} /> Download / Print Overall Quotation PDF
               </button>
             </div>
           </div>
@@ -1576,6 +2022,58 @@ const ClientPortal = () => {
                 <Download size={16} /> Open HD 3D Image
               </a>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUOTATION REJECTION & REVISION QUERY MODAL */}
+      {isRejectModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1.5rem' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', maxWidth: '520px', width: '100%', padding: '1.75rem', border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.85rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#dc2626', fontSize: '1.2rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <AlertCircle size={20} color="#dc2626" /> Reject Quotation & Request Cost Revision
+                </h3>
+                <p style={{ margin: '0.2rem 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+                  Send your queries directly to Project Manager <strong>{project?.assignedPM || 'Gaurav'}</strong>.
+                </p>
+              </div>
+              <X size={20} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setIsRejectModalOpen(false)} />
+            </div>
+
+            <form onSubmit={submitQuotationRejectionModal} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '0.4rem' }}>
+                  💬 Enter Your Queries / Required Price Adjustments
+                </label>
+                <textarea
+                  rows="4"
+                  required
+                  placeholder="e.g., The total material cost ₹2,00,000 is above our budget limit. Please use alternate brand options for carpentry or reduce custom furniture items to lower the price to ₹4,00,000..."
+                  value={rejectionQueries}
+                  onChange={(e) => setRejectionQueries(e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.75rem', borderRadius: '10px', border: '1.5px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontSize: '0.875rem', outline: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsRejectModalOpen(false)}
+                  style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingReject}
+                  style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: 'none', backgroundColor: '#dc2626', color: '#ffffff', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  {isSubmittingReject ? 'Sending...' : '🚀 Send Queries & Request Revision'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -8,6 +8,7 @@ const {
   handleSiteIssue,
   generateQuotation,
   generateSecondInstallmentInvoice,
+  verifyCompletionByPM,
 } = require("../controllers/pmController");
 
 // All routes protected by JWT auth
@@ -18,6 +19,7 @@ router.put("/projects/:id", updatePMProject);
 router.post("/projects/:id/quotation", generateQuotation);
 router.post("/projects/:id/second-installment-invoice", generateSecondInstallmentInvoice);
 router.put("/projects/:id/approve-progress", approveProgress);
+router.put("/projects/:id/verify-completion", verifyCompletionByPM);
 router.put("/issues/:projectId/:issueId", handleSiteIssue);
 
 module.exports = router;

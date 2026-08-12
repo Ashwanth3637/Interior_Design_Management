@@ -22,10 +22,12 @@ exports.getUserNotifications = async (req, res) => {
         const userId = req.user._id || req.user.id;
         const userRoles = getMatchingRoles(req.user.role);
 
+        const userEmail = (req.user.email || "").toLowerCase().trim();
         const filter = {
             $or: [
                 { recipientUser: userId },
                 { recipientRole: { $in: userRoles } },
+                ...(userEmail ? [{ recipientEmail: { $regex: new RegExp(`^${userEmail}$`, 'i') } }] : [])
             ],
         };
 

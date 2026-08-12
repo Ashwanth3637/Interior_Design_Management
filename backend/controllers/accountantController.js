@@ -11,17 +11,27 @@ exports.getAccountantDashboard = async (req, res) => {
     const projects = await Project.find({}).sort({ updatedAt: -1 });
     const expenses = await Expense.find({}).sort({ date: -1 });
 
-    // Consolidate all invoices across projects
+    // Consolidate all invoices across projects — filtered by site progress milestones
     let allInvoices = [];
     projects.forEach((prj) => {
       if (prj.invoices && prj.invoices.length > 0) {
+        const progress = prj.progressPercentage || 0;
         prj.invoices.forEach((inv) => {
+          const isFinal = inv.installmentType === 'Final Installment' || inv.title?.includes('Final');
+          const isSecond = inv.installmentType === 'Second Installment' || inv.title?.includes('Second');
+
+          // Final invoice: only show when project progress >= 90%
+          if (isFinal && progress < 90) return;
+          // 2nd installment: only show when project progress >= 50%
+          if (isSecond && progress < 50) return;
+
           allInvoices.push({
             ...inv.toObject(),
             projectId: prj.projectId,
             projectName: prj.projectName,
             clientName: prj.clientName,
             clientEmail: prj.clientEmail,
+            progressPercentage: progress,
           });
         });
       }
@@ -200,7 +210,14 @@ exports.updatePaymentInstallment = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    const invoice = project.invoices.id(invoiceId);
+    let invoice = null;
+    if (project.invoices && project.invoices.length > 0) {
+      invoice = project.invoices.find(
+        (i) =>
+          (i._id && i._id.toString() === invoiceId) ||
+          i.invoiceNumber === invoiceId
+      );
+    }
     if (!invoice) {
       return res.status(404).json({ success: false, message: "Invoice not found" });
     }
@@ -216,8 +233,49 @@ exports.updatePaymentInstallment = async (req, res) => {
     if (installmentType) invoice.installmentType = installmentType;
     if (notes) invoice.notes = notes;
 
-    if (invoice.status === "Paid" && !invoice.paidDate) {
-      invoice.paidDate = new Date();
+    if (invoice.status === "Paid") {
+      if (!invoice.paidDate) {
+        invoice.paidDate = new Date();
+      }
+      const isAdvance = invoice.installmentType === 'Advance' || invoice.installmentType === 'Advance Payment' || invoice.title?.includes('Advance');
+      const isSecond = invoice.installmentType === 'Second Installment' || invoice.title?.includes('Second');
+      const isFinal = invoice.installmentType === 'Final Installment' || invoice.title?.includes('Final');
+
+      if (isAdvance) {
+        project.advancePaymentPaid = true;
+        project.workflowStage = "Advance Payment Cleared";
+
+        // Notify Site Engineer that work can begin
+        createNotification({
+          recipientRole: 'Site Engineer',
+          title: '🚀 20% Advance Cleared — You can now start site execution!',
+          message: `Accountant recorded 20% Advance payment for '${project.projectName}' (${project.projectId}). Site execution is now unlocked!`,
+          projectId: project.projectId,
+          link: '/site-engineer'
+        }).catch(err => console.error("Notification error:", err));
+      } else if (isSecond) {
+        project.workflowStage = "Second Installment Paid";
+
+        // Notify Site Engineer that 2nd installment is unlocked
+        createNotification({
+          recipientRole: 'Site Engineer',
+          title: '🔓 60% Second Installment Cleared — Site work unlocked!',
+          message: `Accountant recorded 60% Second Installment payment for '${project.projectName}' (${project.projectId}). Site execution past 60% is now unlocked!`,
+          projectId: project.projectId,
+          link: '/site-engineer'
+        }).catch(err => console.error("Notification error:", err));
+      } else if (isFinal) {
+        project.workflowStage = "Final Installment Pending";
+
+        // Notify Site Engineer that final payment is cleared
+        createNotification({
+          recipientRole: 'Site Engineer',
+          title: '🏁 20% Final Payment Cleared — Ready for completion!',
+          message: `Accountant recorded 20% Final Payment for '${project.projectName}' (${project.projectId}). Project completion submission is now unlocked!`,
+          projectId: project.projectId,
+          link: '/site-engineer'
+        }).catch(err => console.error("Notification error:", err));
+      }
     }
 
     await project.save();

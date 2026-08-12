@@ -115,6 +115,14 @@ exports.getProjectById = async (req, res) => {
 // @access  Private
 exports.createProject = async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase();
+    if (callerRole.includes('SUPER_ADMIN') || callerRole === 'SUPER ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: "Super Admin has View-Only access to projects. Creation is restricted to Project Managers and Admins.",
+      });
+    }
+
     const {
       projectId,
       projectName,
@@ -207,6 +215,14 @@ exports.createProject = async (req, res) => {
 // @access  Private
 exports.updateProject = async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase();
+    if (callerRole.includes('SUPER_ADMIN') || callerRole === 'SUPER ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: "Super Admin has View-Only access to projects. Editing is restricted to Project Managers and Admins.",
+      });
+    }
+
     let project = await Project.findById(req.params.id);
 
     if (!project) {
@@ -239,6 +255,14 @@ exports.updateProject = async (req, res) => {
 // @access  Private
 exports.deleteProject = async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase();
+    if (callerRole.includes('SUPER_ADMIN') || callerRole === 'SUPER ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: "Super Admin has View-Only access to projects. Deletion is restricted to Admins.",
+      });
+    }
+
     const project = await Project.findById(req.params.id);
 
     if (!project) {
@@ -281,7 +305,29 @@ exports.uploadDesign = async (req, res) => {
       uploadedAt: new Date(),
     });
 
+    if (project.designApprovalStatus === "Revision Requested") {
+      project.designApprovalStatus = "Pending Review";
+      project.workflowStage = "Design Uploaded";
+      project.designVersion = (project.designVersion || 1) + 1;
+    } else if (project.designApprovalStatus !== "Approved") {
+      project.designApprovalStatus = "Pending Review";
+      project.workflowStage = "Design Uploaded";
+    }
+
     await project.save();
+
+    // Trigger Notification for Client -> New/Revised Design Uploaded
+    await createNotification({
+      recipientRole: "Client",
+      recipientName: project.clientName,
+      senderName: req.user?.name || project.assignedDesigner || "Interior Designer",
+      senderRole: req.user?.role || "Interior Designer",
+      projectId: project.projectId,
+      projectName: project.projectName,
+      title: "🎨 Updated Design Concept Uploaded",
+      message: `Designer ${project.assignedDesigner || req.user?.name} uploaded a new design concept (${title || designType}) for project "${project.projectName}". Ready for your review!`,
+      type: "design_uploaded",
+    });
 
     res.status(200).json({
       success: true,
@@ -336,92 +382,38 @@ exports.payInvoice = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    const invoice = project.invoices.id(req.params.invoiceId);
+    let invoice = null;
+    if (project.invoices && project.invoices.length > 0) {
+      invoice = project.invoices.find(
+        (i) =>
+          (i._id && i._id.toString() === req.params.invoiceId) ||
+          i.invoiceNumber === req.params.invoiceId
+      );
+    }
     if (!invoice) {
       return res.status(404).json({ success: false, message: "Invoice not found" });
     }
 
-    invoice.status = "Paid";
-    invoice.paidAt = new Date();
-    
-    // Sum total of all paid invoices
-    const totalPaid = project.invoices.reduce((acc, inv) => {
-      return acc + (inv.status === "Paid" ? (inv.amount || 0) : 0);
-    }, 0);
-    project.spentAmount = totalPaid;
-
-    // Automatic Workflow Advancement based on Paid Invoice Stage
-    if (invoice.installmentType === "Advance Payment" || invoice.installmentType === "Advance" || invoice.title.includes("Advance")) {
-      project.workflowStage = "Execution Started";
-      project.status = "In Progress";
-      project.advancePaymentPaid = true;
-    } else if (invoice.installmentType === "Second Installment" || invoice.title.includes("Second")) {
-      project.workflowStage = "Second Installment Paid";
-      project.status = "In Progress";
-
-      // Auto-create Final 20% Invoice (Ready for 100% completion)
-      const count = (project.invoices?.length || 0) + 1;
-      const finalAmount = Math.round((project.budget || 560000) * 0.2);
-      const hasFinalInv = project.invoices.some(i => i.installmentType === "Final Installment" || i.title.includes("Final"));
-      
-      if (!hasFinalInv) {
-        project.invoices.push({
-          invoiceNumber: `INV-${project.projectId}-${count}`,
-          title: "20% Final Handover Installment Invoice",
-          installmentType: "Final Installment",
-          amount: finalAmount,
-          paidAmount: 0,
-          status: "Unpaid",
-          notes: "Final balance due upon 100% site execution completion & quality inspection handover.",
-        });
-      }
-    } else if (invoice.installmentType === "Final Installment" || invoice.title.includes("Final")) {
-      project.workflowStage = "Client Handover";
-      project.status = "Completed";
-      project.progressPercentage = 100;
-    }
+    invoice.status = "Pending Verification";
+    invoice.paidAmount = invoice.amount;
+    invoice.notes = `Payment of ₹${(invoice.amount || 0).toLocaleString('en-IN')} submitted by client. Awaiting Accountant verification.`;
 
     await project.save();
 
-    // Dispatch Payment Receipt Email to Client
-    if (project.clientEmail) {
-      sendPaymentReceiptEmail({
-        clientEmail: project.clientEmail,
-        clientName: project.clientName,
-        projectName: project.projectName,
-        invoiceNumber: invoice.invoiceNumber,
-        paidAmount: invoice.paidAmount || invoice.amount,
-      }).catch(err => console.error("Payment receipt email error:", err));
-    }
-
-    // Trigger Notification for Advance Payment Received -> Site Engineer & Project Manager
-    if (invoice.installmentType === "Advance Payment" || invoice.title.includes("Advance")) {
+    // Notify Accountant to review and record payment
+    try {
       await createNotification({
-        recipientRole: "Site Engineer",
-        recipientName: project.siteEngineer,
-        senderName: req.user?.name || project.clientName || "Client",
-        senderRole: req.user?.role || "Client",
+        recipientRole: 'Accountant',
+        title: '💰 Client Payment Submitted — Verification Required',
+        message: `Client ${project.clientName} submitted payment for ${invoice.title} (${invoice.invoiceNumber}). Please verify and record receipt.`,
         projectId: project.projectId,
-        projectName: project.projectName,
-        title: "🔔 Advance Payment Received",
-        message: `Advance payment of ₹${(invoice.amount || 0).toLocaleString("en-IN")} received for project "${project.projectName}". Site execution can now begin!`,
-        type: "payment_received",
+        link: '/accountant'
       });
-      await createNotification({
-        recipientRole: "Project Manager",
-        senderName: req.user?.name || project.clientName || "Client",
-        senderRole: req.user?.role || "Client",
-        projectId: project.projectId,
-        projectName: project.projectName,
-        title: "🔔 Advance Payment Received",
-        message: `Advance payment of ₹${(invoice.amount || 0).toLocaleString("en-IN")} received for project "${project.projectName}".`,
-        type: "payment_received",
-      });
-    }
+    } catch (e) { console.error("Notification error:", e); }
 
     res.status(200).json({
       success: true,
-      message: "Payment processed successfully! Invoice status updated to Paid.",
+      message: `Payment submitted successfully! Invoice sent to Accountant for verification.`,
       data: project,
     });
   } catch (error) {
@@ -454,6 +446,9 @@ exports.approveDesign = async (req, res) => {
       project.workflowStage = "Client Review";
       project.designApprovalStatus = "Pending Review";
       project.designVersion = (project.designVersion || 1) + 1;
+    } else if (status === "Pending Review") {
+      project.workflowStage = "Design Uploaded";
+      project.designApprovalStatus = "Pending Review";
     }
 
     await project.save();
@@ -613,6 +608,13 @@ exports.addMaterial = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
+    if (project.designApprovalStatus !== 'Approved') {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot add estimated materials before Client approves the 2D/3D design proposal."
+      });
+    }
+
     project.materials.push({
       materialName,
       brand: brand || "Standard",
@@ -691,25 +693,32 @@ exports.respondQuotation = async (req, res) => {
     if (status === 'Accepted') {
       project.workflowStage = 'Quotation Approved';
 
-      // Auto-generate 50% Advance Payment Invoice when Client Approves Quotation
-      const totalAmount = targetQuotation.totalAmount || project.budget || 500000;
-      const advanceAmount = Math.round(totalAmount * 0.5);
+      // Mark all other non-rejected quotations as Superseded once accepted
+      project.quotations.forEach(q => {
+        if (q._id && q._id.toString() !== targetQuotation._id.toString() && q.status !== 'Rejected') {
+          q.status = 'Superseded';
+        }
+      });
+
+      // Auto-generate 20% Advance Payment Invoice ONLY when Client Approves Quotation
+      const totalContractPrice = targetQuotation.totalAmount || project.budget || 500000;
+      const advance20PercentAmount = Math.round(totalContractPrice * 0.20);
 
       if (!project.invoices) project.invoices = [];
-      const hasAdvanceInvoice = project.invoices.some(i => i.installmentType === 'Advance' || i.title?.includes('Advance'));
 
-      if (!hasAdvanceInvoice) {
-        project.invoices.push({
-          invoiceNumber: `INV-${project.projectId}-1`,
-          installmentType: 'Advance',
-          title: '50% Advance Payment Invoice',
-          amount: advanceAmount,
-          paidAmount: 0,
-          status: 'Unpaid',
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          notes: 'Required 50% advance payment to initiate site procurement & work execution.'
-        });
-      }
+      // Clean up any unapproved/unpaid old advance invoices from previous rejected iterations
+      project.invoices = project.invoices.filter(i => i.status === 'Paid' || (!i.installmentType?.includes('Advance') && !i.title?.includes('Advance')));
+
+      project.invoices.push({
+        invoiceNumber: `INV-${project.projectId}-1`,
+        installmentType: 'Advance',
+        title: '20% Advance Payment Invoice',
+        amount: advance20PercentAmount,
+        paidAmount: 0,
+        status: 'Unpaid',
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        notes: '20% Advance payment required to clear site engineer procurement & begin work execution.'
+      });
     } else {
       project.workflowStage = 'Quotation Rejected';
       if (rejectionReason) project.clientFeedback = rejectionReason;
@@ -738,6 +747,29 @@ exports.respondQuotation = async (req, res) => {
         title: "🔔 Quotation Approved by Client",
         message: `Client ${project.clientName} approved quotation #${targetQuotation.quotationNumber} for project "${project.projectName}".`,
         type: "quotation_approved",
+      });
+    } else {
+      await createNotification({
+        recipientRole: "Project Manager",
+        recipientName: project.projectManager,
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "🔔 Quotation Rejected by Client",
+        message: `Client ${project.clientName} rejected quotation #${targetQuotation.quotationNumber}. Reason: "${rejectionReason || 'Cost revision requested'}"`,
+        type: "quotation_rejected",
+      });
+      await createNotification({
+        recipientRole: "Interior Designer",
+        recipientName: project.assignedDesigner,
+        senderName: req.user?.name || project.clientName || "Client",
+        senderRole: req.user?.role || "Client",
+        projectId: project.projectId,
+        projectName: project.projectName,
+        title: "❌ Client Requested Quotation Cost Revision",
+        message: `Client ${project.clientName} requested price revision on quotation. Query: "${rejectionReason || 'Cost reduction requested'}"`,
+        type: "quotation_rejected",
       });
     }
 
@@ -847,6 +879,7 @@ exports.getAdminAnalytics = async (req, res) => {
         completedProjects,
         totalRevenue,
         totalBudget,
+        projects: allProjects,
       },
     });
   } catch (error) {
@@ -856,5 +889,248 @@ exports.getAdminAnalytics = async (req, res) => {
       message: "Failed to fetch admin analytics",
       error: error.message,
     });
+  }
+};
+
+// @desc    Site Engineer marks project as 100% completed — sends to PM for verification
+// @route   PUT /api/projects/:id/se-mark-completed
+// @access  Private/SiteEngineer
+exports.seMarkCompleted = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+    // Check if 20% Final Payment Invoice is Paid
+    const finalInv = project.invoices?.find(i => i.installmentType === 'Final Installment' || i.title?.includes('Final'));
+    if (finalInv && finalInv.status !== 'Paid') {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot submit project for completion verification before Client clears the 20% Final Payment Invoice."
+      });
+    }
+
+    project.progressPercentage = 100;
+    project.status = "Review";
+    project.workflowStage = "Awaiting PM Verification";
+    await project.save();
+
+    // Notify PM
+    try {
+      await createNotification({
+        recipientRole: 'Project Manager',
+        title: '🏁 Site Work 100% Completed — Awaiting Your Verification',
+        message: `Site Engineer ${req.user?.name || ''} has marked project '${project.projectName}' (${project.projectId}) as 100% complete. Please review and verify the site work.`,
+        projectId: project.projectId,
+        link: '/pm-dashboard'
+      });
+    } catch (e) { console.error('Notification error:', e); }
+
+    res.status(200).json({
+      success: true,
+      message: `✅ Project marked as completed! Awaiting Project Manager verification.`,
+      data: project,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Error marking project as completed" });
+  }
+};
+
+// @desc    PM verifies completion and passes to Admin for final handover
+// @route   PUT /api/projects/:id/pm-verify-completion
+// @access  Private/ProjectManager
+exports.pmVerifyCompletion = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    project.status = "Verified";
+    project.workflowStage = "Awaiting Admin Handover";
+    await project.save();
+
+    // Notify Admin
+    try {
+      await createNotification({
+        recipientRole: 'Admin',
+        title: '✅ PM Verified — Ready for Final Client Handover',
+        message: `Project Manager has verified completion of '${project.projectName}' (${project.projectId}). Please perform the final client handover.`,
+        projectId: project.projectId,
+        link: '/projects'
+      });
+    } catch (e) { console.error('Notification error:', e); }
+
+    res.status(200).json({
+      success: true,
+      message: `✅ Project verified! Forwarded to Admin for final client handover.`,
+      data: project,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Error verifying project completion" });
+  }
+};
+
+// @desc    Admin Completes Final Client Handover
+// @route   PUT /api/projects/:id/admin-handover
+// @access  Private/Admin
+exports.adminHandover = async (req, res) => {
+  try {
+    // Only Admin / Super Admin can perform final handover
+    const callerRole = req.user?.role || '';
+    const isAdmin = ['Admin', 'ADMIN', 'Super Admin', 'SUPER_ADMIN'].includes(callerRole);
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: "Access denied. Only Admin can perform the final client handover." });
+    }
+
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // 1. Require PM Verification
+    if (project.workflowStage !== 'Awaiting Admin Handover' && project.status !== 'Verified') {
+      return res.status(400).json({ success: false, message: "Project Manager must verify the site work completion before Admin handover." });
+    }
+
+    // 2. Require Accountant Final Payment confirmation
+    const finalInv = project.invoices?.find(i => i.installmentType === 'Final Installment' || i.title?.includes('Final'));
+    if (finalInv && finalInv.status !== 'Paid') {
+      return res.status(400).json({ success: false, message: "Client must pay Final Payment invoice AND Accountant must record payment as Paid before Admin handover." });
+    }
+
+    project.status = "Completed";
+    project.workflowStage = "Project Completed";
+    project.progressPercentage = 100;
+    project.completedAt = new Date();
+    await project.save();
+
+    // Notify client and PM
+    try {
+      if (project.clientEmail) {
+        await createNotification({
+          recipientEmail: project.clientEmail,
+          recipientRole: 'Client',
+          title: '🎉 Your Interior Project is Complete!',
+          message: `Congratulations! Your project '${project.projectName}' has been officially completed and handed over. Thank you for choosing us!`,
+          projectId: project.projectId,
+          link: '/client-portal'
+        });
+      }
+      await createNotification({
+        recipientRole: 'Project Manager',
+        title: '🎉 Project Handed Over Successfully',
+        message: `Admin has completed the final handover of '${project.projectName}' (${project.projectId}) to the client.`,
+        projectId: project.projectId,
+        link: '/pm-dashboard'
+      });
+    } catch (e) { console.error('Notification error:', e); }
+
+    res.status(200).json({
+      success: true,
+      message: `🎉 Project '${project.projectName}' officially handed over to client ${project.clientName}!`,
+      data: project,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Error completing client handover" });
+  }
+};
+
+// @desc    Reopen a completed project (Super Admin Only - PDF Spec Section 8.1)
+// @route   PUT /api/projects/:id/reopen
+// @access  Private/SuperAdmin
+exports.reopenProject = async (req, res) => {
+  try {
+    const callerRole = (req.user?.role || '').toUpperCase();
+    const isSuperAdmin = callerRole.includes('SUPER_ADMIN') || callerRole === 'SUPER ADMIN';
+
+    if (!isSuperAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Only Super Admin can reopen a completed project.",
+      });
+    }
+
+    const { justification } = req.body;
+    if (!justification || !justification.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "A documented justification is required to reopen a completed project.",
+      });
+    }
+
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    project.status = "In Progress";
+    project.workflowStage = "Execution in Progress";
+    project.completedAt = null;
+    project.auditLogs = project.auditLogs || [];
+    project.auditLogs.push({
+      action: "Project Reopened by Super Admin",
+      performedBy: req.user?.name || "Super Admin",
+      reason: justification,
+      timestamp: new Date(),
+    });
+
+    await project.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Project '${project.projectName}' has been reopened. Audit log created.`,
+      data: project,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Error reopening project" });
+  }
+};
+
+// @desc    Toggle Shortlist / Favorite status on a design file (Client)
+// @route   PUT /api/projects/:id/designs/:designId/favorite
+// @access  Private
+exports.toggleDesignFavorite = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    const rawKey = req.params.designId;
+    const decodedKey = decodeURIComponent(rawKey);
+
+    let design = project.designs.find(d => 
+      (d._id && d._id.toString() === rawKey) || 
+      d.title === decodedKey || 
+      d.title === rawKey
+    );
+
+    if (!design && project.designs.length > 0) {
+      if (rawKey.startsWith('design-')) {
+        const idx = parseInt(rawKey.replace('design-', ''), 10);
+        if (!isNaN(idx) && project.designs[idx]) {
+          design = project.designs[idx];
+        }
+      } else {
+        // Fallback: match by title substring
+        design = project.designs.find(d => d.title && (d.title.includes(decodedKey) || decodedKey.includes(d.title)));
+      }
+    }
+
+    if (!design) {
+      return res.status(404).json({ success: false, message: "Design proposal file not found" });
+    }
+
+    design.isFavorite = !design.isFavorite;
+    await project.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Design proposal '${design.title}' ${design.isFavorite ? 'shortlisted as favorite ❤️' : 'removed from shortlist'}`,
+      data: project,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Error toggling design favorite" });
   }
 };

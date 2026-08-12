@@ -129,7 +129,7 @@ exports.createClient = async (req, res) => {
     });
 
     // Auto-create User login credentials for new client
-    const clientPassword = password || 'Client123!';
+    const clientPassword = password || 'client123';
     let clientUser = await User.findOne({ email });
     if (!clientUser) {
       clientUser = await User.create({
@@ -142,7 +142,7 @@ exports.createClient = async (req, res) => {
     }
 
     // If any staff role was assigned, auto-create a project for this client assigned to them
-    if (assignedDesigner || siteEngineer || req.body.projectManager || req.body.accountant) {
+    if (assignedDesigner || siteEngineer || req.body.projectManager || req.body.accountant || req.body.salesExecutive) {
       const prjId = `PRJ-${Math.floor(1000 + Math.random() * 9000)}`;
       await Project.create({
         projectId: prjId,
@@ -158,6 +158,7 @@ exports.createClient = async (req, res) => {
         siteEngineer: siteEngineer || 'Unassigned',
         projectManager: req.body.projectManager || siteEngineer || 'Unassigned',
         accountant: req.body.accountant || 'Unassigned',
+        salesExecutive: req.body.salesExecutive || 'Unassigned',
         status: 'In Progress',
       });
     }
@@ -241,6 +242,48 @@ exports.getMyClientPortal = async (req, res) => {
         { clientName: { $regex: userName, $options: 'i' } }
       ]
     });
+
+    // Ensure 20% Advance Invoice amount dynamically equals 20% of active approved quotation
+    for (let proj of projects) {
+      if (proj.quotations && proj.quotations.length > 0) {
+        const acceptedQuote = proj.quotations.find(q => q.status === 'Accepted');
+        if (acceptedQuote && acceptedQuote.totalAmount) {
+          const expected20Pct = Math.round(acceptedQuote.totalAmount * 0.20);
+          let modified = false;
+          if (proj.invoices) {
+            // Clean up duplicate unapproved old advance invoices
+            proj.invoices = proj.invoices.filter(i => i.status === 'Paid' || i.status === 'Pending Verification' || (!i.installmentType?.includes('Advance') && !i.title?.includes('Advance')));
+            if (!proj.invoices.some(i => i.installmentType === 'Advance' || i.title?.includes('Advance'))) {
+              proj.invoices.push({
+                invoiceNumber: `INV-${proj.projectId}-1`,
+                installmentType: 'Advance',
+                title: '20% Advance Payment Invoice',
+                amount: expected20Pct,
+                paidAmount: 0,
+                status: 'Unpaid',
+                dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                notes: `20% Advance payment (₹${expected20Pct.toLocaleString('en-IN')}) required to clear site engineer procurement & begin work execution.`
+              });
+              modified = true;
+            } else {
+              for (let inv of proj.invoices) {
+                if ((inv.installmentType === 'Advance' || inv.title?.includes('Advance')) && inv.status === 'Unpaid') {
+                  if (inv.amount !== expected20Pct) {
+                    inv.amount = expected20Pct;
+                    inv.title = '20% Advance Payment Invoice';
+                    inv.notes = `20% Advance payment (₹${expected20Pct.toLocaleString('en-IN')}) required to clear site engineer procurement & begin work execution.`;
+                    modified = true;
+                  }
+                }
+              }
+            }
+          }
+          if (modified) {
+            await proj.save();
+          }
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,

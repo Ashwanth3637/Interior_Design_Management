@@ -19,18 +19,27 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
+  const userRole = (user?.role || '').toUpperCase();
+  const isSuperAdmin = userRole.includes('SUPER_ADMIN') || userRole === 'SUPER ADMIN';
+  const isAdmin = userRole === 'ADMIN' || userRole === 'ADMINISTRATOR';
+
+  if (allowedRoles.length > 0 && !isAdmin && !allowedRoles.includes(user?.role)) {
     return (
       <div className="unauthorized-container">
         <div className="unauthorized-card">
           <ShieldAlert size={48} className="unauthorized-icon" />
-          <h2>Access Denied</h2>
+          <h2>Access Restricted</h2>
           <p>
-            Your account role <strong>({user?.role})</strong> does not have permission to view this resource.
+            {isSuperAdmin
+              ? `Super Admin permissions are restricted strictly to Employee Management (/employees) and View-Only Projects (/projects). Operational role dashboards are reserved for Admins and operational staff.`
+              : `Your account role (${user?.role}) does not have permission to view this resource.`}
           </p>
-          <p className="subtext">Required Role(s): {allowedRoles.join(', ')}</p>
-          <a href="/dashboard" className="btn-primary-gradient" style={{ display: 'inline-block', marginTop: '1rem', textDecoration: 'none' }}>
-            Return to Dashboard
+          <a
+            href={isSuperAdmin ? "/super-admin" : "/dashboard"}
+            className="btn-primary-gradient"
+            style={{ display: 'inline-block', marginTop: '1rem', textDecoration: 'none' }}
+          >
+            {isSuperAdmin ? "Return to Super Admin Console" : "Return to Dashboard"}
           </a>
         </div>
       </div>

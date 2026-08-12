@@ -2,6 +2,7 @@ const Project = require("../models/project");
 const Employee = require("../models/Employee");
 const SiteWork = require("../models/SiteWork");
 const { sendQuotationEmail, sendInvoiceEmail } = require("../utils/emailService");
+const { createNotification } = require("../utils/notificationHelper");
 
 // @desc    Get PM Dashboard Summary & Assigned Projects List (with Daily Logs, Materials, & Issues)
 // @route   GET /api/pm/dashboard
@@ -36,8 +37,8 @@ exports.getPMDashboard = async (req, res) => {
     const totalProjects = projects.length;
     const ongoingProjects = projects.filter((p) => p.status === "In Progress" || p.status === "Planning").length;
     const completedProjects = projects.filter((p) => p.status === "Completed").length;
-
-    // Delayed projects calculation
+    const pendingVerification = projects.filter((p) => p.status === "Review" || p.workflowStage === "Awaiting PM Verification").length;
+    const awaitingHandover = projects.filter((p) => p.status === "Verified" || p.workflowStage === "Awaiting Admin Handover").length;
     const now = new Date();
     const delayedProjects = projects.filter((p) => {
       if (p.status === "On Hold") return true;
@@ -86,6 +87,8 @@ exports.getPMDashboard = async (req, res) => {
           ongoingProjects,
           completedProjects,
           delayedProjects,
+          pendingVerification,
+          awaitingHandover,
         },
         projects: combinedProjects,
         teamOptions: {
@@ -230,6 +233,13 @@ exports.generateQuotation = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
+    if (project.designApprovalStatus !== 'Approved') {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot generate official quotation before Client approves 2D/3D design proposals."
+      });
+    }
+
     const mat = Number(materialCost) || 0;
     const lab = Number(labourCost) || 0;
     const des = Number(designCharges) || 0;
@@ -263,29 +273,18 @@ exports.generateQuotation = async (req, res) => {
     };
 
     project.quotations = project.quotations || [];
+    project.quotations.forEach((q) => {
+      if (q.status === "Sent to Client" || q.status === "Pending") {
+        q.status = "Superseded";
+      }
+    });
     project.quotations.push(newQuotation);
     project.budget = isSecondQuote ? project.budget : finalTotal;
     project.workflowStage = isSecondQuote ? "Second Installment Quotation Generated" : "Quotation Generated";
 
-    // Auto-generate invoice corresponding to stage
-    const count = (project.invoices?.length || 0) + 1;
-    const invTitle = isSecondQuote ? "30% Second Installment Invoice" : "50% Advance Payment Invoice";
-    const invType = isSecondQuote ? "Second Installment" : "Advance Payment";
-    const invAmount = isSecondQuote ? Math.round(finalTotal * 0.3) : Math.round(finalTotal * 0.5);
-
-    project.invoices.push({
-      invoiceNumber: `INV-${project.projectId}-${count}`,
-      title: invTitle,
-      installmentType: invType,
-      amount: invAmount,
-      paidAmount: 0,
-      status: "Unpaid",
-      notes: isSecondQuote ? "Second installment payment for 60% site execution." : "Advance payment required to initiate procurement and site execution.",
-    });
-
     await project.save();
 
-    // Dispatch Quotation & Invoice Emails to Client asynchronously
+    // Dispatch Quotation Email to Client asynchronously
     if (project.clientEmail) {
       sendQuotationEmail({
         clientEmail: project.clientEmail,
@@ -294,16 +293,32 @@ exports.generateQuotation = async (req, res) => {
         quotationNumber: qNum,
         totalAmount: finalTotal,
       }).catch(err => console.error("Quotation email error:", err));
-
-      sendInvoiceEmail({
-        clientEmail: project.clientEmail,
-        clientName: project.clientName,
-        projectName: project.projectName,
-        invoiceNumber: `INV-${project.projectId}-${count}`,
-        amount: invAmount,
-        installmentType: invType,
-      }).catch(err => console.error("Invoice email error:", err));
     }
+
+    // Trigger Notifications for Client & Interior Designer
+    await createNotification({
+      recipientRole: "Client",
+      recipientName: project.clientName,
+      senderName: req.user?.name || "Project Manager",
+      senderRole: "Project Manager",
+      projectId: project.projectId,
+      projectName: project.projectName,
+      title: "📜 Official Price Quotation Issued",
+      message: `Project Manager ${req.user?.name || 'Gaurav'} generated Official Price Quotation #${qNum} (Total: ₹${finalTotal.toLocaleString('en-IN')}). Please review & approve!`,
+      type: "quotation_issued",
+    });
+
+    await createNotification({
+      recipientRole: "Interior Designer",
+      recipientName: project.assignedDesigner,
+      senderName: req.user?.name || "Project Manager",
+      senderRole: "Project Manager",
+      projectId: project.projectId,
+      projectName: project.projectName,
+      title: "📜 Quotation Issued / Revised by PM",
+      message: `Project Manager ${req.user?.name || 'Gaurav'} issued Quotation #${qNum} (Total: ₹${finalTotal.toLocaleString('en-IN')}) based on your approved design layout.`,
+      type: "quotation_issued",
+    });
 
     res.status(201).json({
       success: true,
@@ -328,19 +343,19 @@ exports.generateSecondInstallmentInvoice = async (req, res) => {
     }
 
     const totalBudget = project.budget || 500000;
-    const invAmount = amount ? Number(amount) : Math.round(totalBudget * 0.3);
+    const invAmount = amount ? Number(amount) : Math.round(totalBudget * 0.6);
     const count = (project.invoices?.length || 0) + 1;
 
     project.invoices = project.invoices || [];
     project.invoices.push({
       invoiceNumber: `INV-${project.projectId}-${count}`,
-      title: "30% Second Installment Invoice",
+      title: "60% Second Installment Invoice",
       installmentType: "Second Installment",
       amount: invAmount,
       paidAmount: 0,
       status: "Unpaid",
       dueDate: dueDate ? new Date(dueDate) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-      notes: remarks || "Second installment payment for 50-60% site execution completion.",
+      notes: remarks || "Second installment payment (60%) for 50-60% site execution completion.",
     });
 
     project.workflowStage = "Second Installment Quotation Generated";
@@ -353,5 +368,29 @@ exports.generateSecondInstallmentInvoice = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || "Error generating 2nd installment invoice" });
+  }
+};
+
+// @desc    PM Verifies Completed Project & Forwards to Admin for Handover
+// @route   PUT /api/pm/projects/:id/verify-completion
+// @access  Private/ProjectManager
+exports.verifyCompletionByPM = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    project.workflowStage = "Awaiting Client Handover";
+    project.status = "Review";
+    await project.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Project '${project.projectName}' verified by PM! Status updated to 'Awaiting Client Handover'.`,
+      data: project,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Error verifying completion" });
   }
 };

@@ -19,7 +19,8 @@ import {
   Eye,
   EyeOff,
   Palette,
-  FolderOpen
+  FolderOpen,
+  RotateCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import WorkflowStepper from './WorkflowStepper';
@@ -32,6 +33,13 @@ const SalesExecutiveDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSpinning, setIsSpinning] = useState(false);
+
+  const handleManualRefresh = () => {
+    setIsSpinning(true);
+    fetchSalesData(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  };
 
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -41,7 +49,7 @@ const SalesExecutiveDashboard = () => {
     clientName: '',
     clientEmail: '',
     clientPhone: '',
-    password: 'Password123!',
+    password: 'client123',
     location: '',
     projectType: 'Residential',
     budget: '500000',
@@ -240,6 +248,27 @@ const SalesExecutiveDashboard = () => {
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button
+                onClick={handleManualRefresh}
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  padding: '0.65rem 1rem',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: '600',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Refresh Sales Data"
+              >
+                <RotateCw size={16} className={isSpinning ? 'spin-icon' : ''} style={{ color: '#2563eb' }} /> Refresh
+              </button>
               <NotificationBell size={22} />
               <button
                 onClick={openRegisterModal}
@@ -359,11 +388,54 @@ const SalesExecutiveDashboard = () => {
                           {formatCurrency(p.budget)}
                         </td>
                         <td style={{ padding: '1rem 1.25rem' }}>
-                          <span style={{ ...badgeStyle, padding: '0.3rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-block' }}>
-                            {(!p.designs || p.designs.length === 0) && (p.workflowStage === 'Design Upload' || p.workflowStage === 'Designer Assigned')
-                              ? 'Designer Assigned (Pending Upload)'
-                              : (p.workflowStage || 'Designer Assigned')}
-                          </span>
+                          {(() => {
+                            const hasDesigns = p.designs && p.designs.length > 0;
+                            const isDesignApproved = p.designApprovalStatus === 'Approved' || p.workflowStage === 'Design Approved';
+                            const isRevisionRequested = p.designApprovalStatus === 'Revision Requested' || p.workflowStage === 'Revision Requested';
+                            const hasQuotation = (p.quotations && p.quotations.length > 0);
+                            const isQuotationApproved = p.quotationApproved || (p.quotations && p.quotations.some(q => q.status === 'Accepted'));
+                            const isAdvancePaid = p.advancePaymentPaid || (p.invoices && p.invoices.some(i => i.status === 'Paid'));
+
+                            let badge = { label: '🎨 Designer Assigned (Pending Upload)', bg: '#f8fafc', color: '#64748b', border: '#cbd5e1' };
+
+                            if (p.status === 'Completed' || p.workflowStage === 'Project Completed') {
+                              badge = { label: '🎉 Project Completed', bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' };
+                            } else if (p.workflowStage === 'Awaiting Client Handover') {
+                              badge = { label: '🤝 Verified by PM (Ready for Handover)', bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' };
+                            } else if (p.workflowStage === 'Awaiting PM Verification') {
+                              badge = { label: '👷 100% Executed (Awaiting PM Verification)', bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' };
+                            } else if (p.progressPercentage > 0) {
+                              badge = { label: `🚧 Site Progress ${p.progressPercentage}%`, bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' };
+                            } else if (isAdvancePaid) {
+                              badge = { label: '💳 20% Advance Paid (Execution Unlocked)', bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' };
+                            } else if (isQuotationApproved) {
+                              badge = { label: '📜 Quotation Approved (Awaiting Advance)', bg: '#fefce8', color: '#ca8a04', border: '#fef08a' };
+                            } else if (hasQuotation) {
+                              badge = { label: '📄 Quotation Issued (Awaiting Client Approval)', bg: '#fff7ed', color: '#ea580c', border: '#ffedd5' };
+                            } else if (isDesignApproved) {
+                              badge = { label: '✔ Design Approved (Awaiting Material/Quotation)', bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' };
+                            } else if (isRevisionRequested) {
+                              badge = { label: '🔄 Client Requested Revision', bg: '#fefce8', color: '#ca8a04', border: '#fef08a' };
+                            } else if (hasDesigns || p.workflowStage === 'Design Uploaded' || p.workflowStage === 'Design Upload') {
+                              badge = { label: '🎨 Design Uploaded (Awaiting Client Approval)', bg: '#f3e8ff', color: '#7c3aed', border: '#e9d5ff' };
+                            }
+
+                            return (
+                              <span style={{
+                                backgroundColor: badge.bg,
+                                color: badge.color,
+                                border: `1px solid ${badge.border}`,
+                                padding: '0.35rem 0.8rem',
+                                borderRadius: '9999px',
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                                display: 'inline-block',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                              }}>
+                                {badge.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                       </tr>
                     );
@@ -374,49 +446,6 @@ const SalesExecutiveDashboard = () => {
           </div>
         </div>
 
-        {/* DESIGN PORTFOLIO SHOWCASE FOR SALES PITCHES */}
-        <div style={{ marginTop: '2.5rem', backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.03)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#0f172a' }}>Sales Pitch Portfolio Showcase</h3>
-              <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>High-resolution interior design concepts to showcase to prospective clients.</p>
-            </div>
-            <span style={{ fontSize: '0.75rem', fontWeight: '700', backgroundColor: '#eff6ff', color: '#2563eb', padding: '0.3rem 0.75rem', borderRadius: '9999px' }}>
-              6 Ready Assets
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1.25rem' }}>
-            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-              <img src={designImages.livingRoom} alt="Living Room" style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
-              <div style={{ padding: '0.75rem', background: '#f8fafc' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2563eb' }}>Living Room</span>
-                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>Modern Warm Lounge</h4>
-              </div>
-            </div>
-            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-              <img src={designImages.kitchen} alt="Modular Kitchen" style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
-              <div style={{ padding: '0.75rem', background: '#f8fafc' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2563eb' }}>Modular Kitchen</span>
-                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>Luxury Oak Countertop</h4>
-              </div>
-            </div>
-            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-              <img src={designImages.bedroom} alt="Master Bedroom" style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
-              <div style={{ padding: '0.75rem', background: '#f8fafc' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2563eb' }}>Bedroom</span>
-                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>Penthouse Master Suite</h4>
-              </div>
-            </div>
-            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-              <img src={designImages.office} alt="Executive Office" style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
-              <div style={{ padding: '0.75rem', background: '#f8fafc' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2563eb' }}>Office</span>
-                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>Executive Home Office</h4>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* REGISTER CLIENT LEAD MODAL */}
