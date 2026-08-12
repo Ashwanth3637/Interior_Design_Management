@@ -18,7 +18,10 @@ import {
   AlertCircle,
   Layers,
   FileCheck,
-  RotateCw
+  RotateCw,
+  Folder,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
@@ -37,7 +40,16 @@ const AccountantDashboard = () => {
     setTimeout(() => setIsSpinning(false), 600);
   };
 
-  const [activeTab, setActiveTab] = useState('invoices'); // invoices, paymentTracking, expenses, receipts, reports
+  const [activeTab, setActiveTab] = useState('invoices'); // invoices, paymentTracking, completedPayments, expenses, receipts, reports
+  const [folderFilter, setFolderFilter] = useState('active'); // default to 'active' projects only
+  const [expandedFolderIds, setExpandedFolderIds] = useState({});
+
+  const toggleFolder = (projId) => {
+    setExpandedFolderIds(prev => ({
+      ...prev,
+      [projId]: prev[projId] === false ? true : false
+    }));
+  };
 
   // Modals State
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
@@ -311,6 +323,13 @@ const AccountantDashboard = () => {
   const projectsList = data?.projects || [];
   const reports = data?.reports || { totalRevenue: 0, totalMaterialCost: 0, totalLabourCost: 0, totalMiscExpenses: 0, totalExpenses: 0, netProfit: 0 };
 
+  const completedProjectIds = projectsList
+    .filter(p => p.status === 'Completed' || p.workflowStage === 'Project Completed')
+    .map(p => p.projectId || p._id);
+
+  const activeInvoices = invoicesList.filter(inv => !completedProjectIds.includes(inv.projectId));
+  const completedInvoices = invoicesList.filter(inv => completedProjectIds.includes(inv.projectId));
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '2rem 1.5rem', fontFamily: "'Inter', sans-serif" }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
@@ -436,8 +455,9 @@ const AccountantDashboard = () => {
         {/* NAVIGATION MODULE TABS */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.4rem', borderBottom: '1px solid #e2e8f0' }}>
           {[
-            { id: 'invoices', label: 'Invoice Management', icon: FileText },
+            { id: 'invoices', label: 'Active Invoice Directory', icon: FileText },
             { id: 'paymentTracking', label: 'Payment Tracking', icon: CreditCard },
+            { id: 'completedPayments', label: 'Completed Project Payments', icon: CheckCircle },
             { id: 'expenses', label: 'Expense Management', icon: Layers },
             { id: 'receipts', label: 'Receipts', icon: Download },
             { id: 'reports', label: 'Financial Reports', icon: PieChart },
@@ -475,72 +495,88 @@ const AccountantDashboard = () => {
           <div style={{ textAlign: 'center', padding: '4rem', color: '#64748b' }}>Loading Accountant workspace...</div>
         ) : (
           <div>
-            {/* TAB 1: INVOICE MANAGEMENT */}
+            {/* TAB 1: ACTIVE INVOICE DIRECTORY */}
             {activeTab === 'invoices' && (
               <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                <div style={{ padding: '1.25rem', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.1rem', fontWeight: '700' }}>Client Invoices Directory ({invoicesList.length})</h3>
+                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.1rem', fontWeight: '800' }}>Active Client Invoices Directory ({activeInvoices.length})</h3>
+                    <p style={{ margin: '0.2rem 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>Invoices for active ongoing client projects.</p>
+                  </div>
                 </div>
 
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-                    <thead style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>
-                      <tr>
-                        <th style={{ padding: '0.9rem 1.25rem' }}>Invoice Details</th>
-                        <th style={{ padding: '0.9rem 1.25rem' }}>Project & Client</th>
-                        <th style={{ padding: '0.9rem 1.25rem' }}>Installment Stage</th>
-                        <th style={{ padding: '0.9rem 1.25rem' }}>Total & Paid</th>
-                        <th style={{ padding: '0.9rem 1.25rem' }}>Status</th>
-                        <th style={{ padding: '0.9rem 1.25rem', textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoicesList.map((inv) => (
-                        <tr key={inv._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '1rem 1.25rem' }}>
-                            <div style={{ fontWeight: '700', color: '#2563eb', fontSize: '0.95rem' }}>{inv.invoiceNumber}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Due: {new Date(inv.dueDate).toLocaleDateString()}</div>
-                          </td>
-                          <td style={{ padding: '1rem 1.25rem' }}>
-                            <div style={{ fontWeight: '700', color: '#0f172a' }}>{inv.projectName}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{inv.clientName} ({inv.projectId})</div>
-                          </td>
-                          <td style={{ padding: '1rem 1.25rem' }}>
-                            <span style={{ backgroundColor: '#eff6ff', color: '#2563eb', padding: '0.2rem 0.65rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700' }}>
-                              {inv.installmentType || 'Advance Payment'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '1rem 1.25rem' }}>
-                            <div style={{ fontWeight: '700', color: '#0f172a' }}>₹{inv.amount?.toLocaleString('en-IN')}</div>
-                            <div style={{ fontSize: '0.75rem', color: inv.paidAmount >= inv.amount ? '#16a34a' : '#d97706', fontWeight: '600' }}>
-                              Received: ₹{(inv.paidAmount || 0).toLocaleString('en-IN')}
-                            </div>
-                          </td>
-                          <td style={{ padding: '1rem 1.25rem' }}>
-                            <span style={{ padding: '0.25rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700', backgroundColor: inv.status === 'Paid' ? '#f0fdf4' : '#fef2f2', color: inv.status === 'Paid' ? '#16a34a' : '#dc2626' }}>
-                              {inv.status === 'Paid' ? '✔ Payment Completed' : 'Unpaid / Pending'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
-                              <button
-                                onClick={() => openPaymentModal(inv)}
-                                style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer' }}
-                              >
-                                Record Payment
-                              </button>
-                              <button
-                                onClick={() => handleDeleteInvoice(inv.projectId, inv._id, inv.invoiceNumber)}
-                                style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '0.45rem', borderRadius: '6px', cursor: 'pointer' }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
+                  {activeInvoices.length === 0 ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                      No active invoices pending. Click <strong>+ Issue New Invoice</strong> to create one.
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+                      <thead style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                        <tr>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Invoice Details</th>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Project & Client</th>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Installment Stage</th>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Total & Paid</th>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Status</th>
+                          <th style={{ padding: '0.9rem 1.25rem', textAlign: 'right' }}>Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {activeInvoices.map((inv) => (
+                          <tr key={inv._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <div style={{ fontWeight: '700', color: '#2563eb', fontSize: '0.95rem' }}>{inv.invoiceNumber}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Due: {new Date(inv.dueDate).toLocaleDateString()}</div>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <div style={{ fontWeight: '700', color: '#0f172a' }}>{inv.projectName}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{inv.clientName} ({inv.projectId})</div>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <span style={{ backgroundColor: '#eff6ff', color: '#2563eb', padding: '0.2rem 0.65rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700' }}>
+                                {inv.installmentType || 'Advance Payment'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <div style={{ fontWeight: '700', color: '#0f172a' }}>₹{inv.amount?.toLocaleString('en-IN')}</div>
+                              <div style={{ fontSize: '0.75rem', color: inv.paidAmount >= inv.amount ? '#16a34a' : '#d97706', fontWeight: '600' }}>
+                                Received: ₹{(inv.paidAmount || 0).toLocaleString('en-IN')}
+                              </div>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <span style={{ padding: '0.25rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700', backgroundColor: inv.status === 'Paid' ? '#f0fdf4' : '#fef2f2', color: inv.status === 'Paid' ? '#16a34a' : '#dc2626' }}>
+                                {inv.status === 'Paid' ? '✔ Payment Completed' : 'Unpaid / Pending'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                                <button
+                                  onClick={() => openPaymentModal(inv)}
+                                  style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.45rem 0.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer' }}
+                                >
+                                  Record Payment
+                                </button>
+                                <button
+                                  onClick={() => openReceiptModal(inv)}
+                                  title="Print Official Payment Receipt"
+                                  style={{ backgroundColor: '#f0f0f0', color: '#334155', border: '1px solid #cbd5e1', padding: '0.45rem', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  <Printer size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteInvoice(inv.projectId, inv._id, inv.invoiceNumber)}
+                                  style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '0.45rem', borderRadius: '6px', cursor: 'pointer' }}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </div>
             )}
@@ -598,7 +634,79 @@ const AccountantDashboard = () => {
               </div>
             )}
 
-            {/* TAB 3: EXPENSE MANAGEMENT */}
+            {/* TAB 3: COMPLETED PROJECT PAYMENTS ARCHIVE */}
+            {activeTab === 'completedPayments' && (
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #bbf7d0', overflow: 'hidden' }}>
+                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #bbf7d0', backgroundColor: '#f0fdf4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#15803d', fontSize: '1.1rem', fontWeight: '800' }}>Completed Projects Payment Archive ({completedInvoices.length})</h3>
+                    <p style={{ margin: '0.2rem 0 0 0', color: '#166534', fontSize: '0.85rem' }}>Payment history for completed and handed-over projects.</p>
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  {completedInvoices.length === 0 ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                      No completed project invoices yet.
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+                      <thead style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                        <tr>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Invoice Details</th>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Project & Client</th>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Installment Stage</th>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Total & Paid</th>
+                          <th style={{ padding: '0.9rem 1.25rem' }}>Status</th>
+                          <th style={{ padding: '0.9rem 1.25rem', textAlign: 'right' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {completedInvoices.map((inv) => (
+                          <tr key={inv._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <div style={{ fontWeight: '700', color: '#2563eb', fontSize: '0.95rem' }}>{inv.invoiceNumber}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Due: {new Date(inv.dueDate).toLocaleDateString()}</div>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <div style={{ fontWeight: '700', color: '#0f172a' }}>{inv.projectName}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{inv.clientName} ({inv.projectId})</div>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <span style={{ backgroundColor: '#eff6ff', color: '#2563eb', padding: '0.2rem 0.65rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700' }}>
+                                {inv.installmentType || 'Advance Payment'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <div style={{ fontWeight: '700', color: '#0f172a' }}>₹{inv.amount?.toLocaleString('en-IN')}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: '600' }}>
+                                Received: ₹{(inv.paidAmount || 0).toLocaleString('en-IN')}
+                              </div>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem' }}>
+                              <span style={{ padding: '0.25rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700', backgroundColor: '#f0fdf4', color: '#16a34a' }}>
+                                ✔ Payment Completed
+                              </span>
+                            </td>
+                            <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                              <button
+                                onClick={() => openReceiptModal(inv)}
+                                title="Print Official Payment Receipt"
+                                style={{ backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.45rem 0.85rem', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontWeight: '700', fontSize: '0.8rem' }}
+                              >
+                                <Printer size={14} /> Print Receipt
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: EXPENSE MANAGEMENT */}
             {activeTab === 'expenses' && (
               <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                 <div style={{ padding: '1.25rem', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

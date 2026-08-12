@@ -54,6 +54,7 @@ const ClientPortal = () => {
   };
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedQuotationDoc, setSelectedQuotationDoc] = useState(null);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
 
   // Design Approval & Favorites state
   const [feedback, setFeedback] = useState('');
@@ -112,6 +113,20 @@ const ClientPortal = () => {
   // Simulated Payment Modal state
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [copiedVpa, setCopiedVpa] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState(false);
+
+  const handleCopyVpa = (vpa) => {
+    try { navigator.clipboard?.writeText(vpa); } catch(e){}
+    setCopiedVpa(true);
+    setTimeout(() => setCopiedVpa(false), 2000);
+  };
+
+  const handleCopyPhone = (phone) => {
+    try { navigator.clipboard?.writeText(phone); } catch(e){}
+    setCopiedPhone(true);
+    setTimeout(() => setCopiedPhone(false), 2000);
+  };
 
   // Payment Receipt Modal state
   const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState(null);
@@ -201,14 +216,18 @@ const ClientPortal = () => {
       const result = await res.json();
       if (res.ok && result.success) {
         setData(result.data);
-        const proj = result.data?.projects?.[0];
-        if (proj) {
-          if (proj.clientFeedback && isInitial) {
-            setFeedback(proj.clientFeedback);
-          }
-          if (proj.designs) {
-            const favs = proj.designs.filter(d => d.isFavorite).map(d => d._id || d.title);
-            setFavoriteDesignIds(favs);
+        const projectsList = result.data?.projects || [];
+        if (projectsList.length > 0) {
+          const activeProjId = selectedProjectId || projectsList[0]._id || projectsList[0].projectId;
+          const proj = projectsList.find(p => p._id === activeProjId || p.projectId === activeProjId) || projectsList[0];
+          if (proj) {
+            if (proj.clientFeedback && isInitial) {
+              setFeedback(proj.clientFeedback);
+            }
+            if (proj.designs) {
+              const favs = proj.designs.filter(d => d.isFavorite).map(d => d._id || d.title);
+              setFavoriteDesignIds(favs);
+            }
           }
         }
       } else {
@@ -251,7 +270,8 @@ const ClientPortal = () => {
     }
   }, [successMsg]);
 
-  const project = data?.projects?.[0] || null;
+  const projectsList = data?.projects || [];
+  const project = projectsList.find(p => p._id === selectedProjectId || p.projectId === selectedProjectId) || projectsList[0] || null;
   const profile = data?.clientProfile || null;
 
   // Handle Design Approval Submission
@@ -397,7 +417,9 @@ const ClientPortal = () => {
       setIsProcessingPayment(true);
       setError('');
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${project._id}/invoices/${selectedInvoice._id}/pay`, {
+      const targetProjId = project._id || project.projectId;
+      const targetInvId = selectedInvoice._id || selectedInvoice.invoiceNumber || selectedInvoice.id;
+      const res = await fetch(`http://localhost:5001/api/projects/${targetProjId}/invoices/${targetInvId}/pay`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -567,7 +589,35 @@ const ClientPortal = () => {
         </div>
       )}
 
+      {/* Multi-Project Switcher Banner for Clients with Multiple Projects */}
+      {projectsList.length > 1 && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '14px', border: '1.5px solid #bfdbfe', padding: '0.85rem 1.25rem', marginBottom: '1.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', boxShadow: '0 2px 6px rgba(37,99,235,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Briefcase size={20} />
+            </div>
+            <div>
+              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Multi-Project Account</span>
+              <h4 style={{ margin: 0, color: '#0f172a', fontSize: '1.05rem', fontWeight: '800' }}>You have {projectsList.length} interior projects with us</h4>
+            </div>
+          </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>Switch Active Project View:</span>
+            <select
+              value={project?._id || project?.projectId || ''}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              style={{ padding: '0.5rem 1rem', borderRadius: '10px', border: '1.5px solid #2563eb', backgroundColor: '#ffffff', color: '#0f172a', fontWeight: '700', fontSize: '0.9rem', outline: 'none', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}
+            >
+              {projectsList.map(p => (
+                <option key={p._id || p.projectId} value={p._id || p.projectId}>
+                  {p.projectName} ({p.projectId}) — {p.status === 'Completed' || p.workflowStage === 'Project Completed' ? '🎉 Completed' : '⚡ Active'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '4rem', color: '#64748b', fontSize: '1rem' }}>
@@ -1559,10 +1609,10 @@ const ClientPortal = () => {
         </div>
       )}
 
-      {/* Interactive Payment Popup Modal with UPI QR Code */}
+      {/* Interactive Payment Popup Modal with Direct GPay & UPI Scanner */}
       {isPayModalOpen && selectedInvoice && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', width: '100%', maxWidth: '480px', padding: '2rem', border: '1px solid #e2e8f0', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', position: 'relative' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', width: '100%', maxWidth: '500px', padding: '2rem', border: '1px solid #e2e8f0', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
             <button
               onClick={() => setIsPayModalOpen(false)}
               style={{ position: 'absolute', top: '16px', right: '16px', background: '#f1f5f9', border: 'none', color: '#64748b', cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -1571,38 +1621,97 @@ const ClientPortal = () => {
             </button>
 
             <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-              <div style={{ width: '52px', height: '52px', backgroundColor: '#eff6ff', color: '#2563eb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem auto' }}>
-                <QrCode size={28} />
+              <div style={{ width: '56px', height: '56px', backgroundColor: '#eff6ff', color: '#2563eb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem auto' }}>
+                <QrCode size={30} />
               </div>
-              <h3 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '1.3rem', fontWeight: '800' }}>Scan & Pay via UPI QR</h3>
+              <h3 style={{ margin: '0 0 0.2rem 0', color: '#0f172a', fontSize: '1.35rem', fontWeight: '800' }}>Direct GPay & UPI Payment</h3>
               <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>
                 Invoice: <strong>{selectedInvoice.invoiceNumber}</strong> • {selectedInvoice.title}
               </p>
             </div>
 
-            {/* Payable Amount Summary */}
-            <div style={{ backgroundColor: '#f8fafc', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.25rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-              <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', display: 'block', marginBottom: '0.2rem' }}>Total Payable Amount</span>
-              <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#16a34a', letterSpacing: '-0.02em' }}>
+            {/* Payable Amount Summary Card */}
+            <div style={{ backgroundColor: '#f0fdf4', borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '1.25rem', border: '1.5px solid #bbf7d0', textAlign: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: '#166534', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', display: 'block', marginBottom: '0.2rem' }}>Total Amount to Pay</span>
+              <div style={{ fontSize: '1.85rem', fontWeight: '900', color: '#15803d', letterSpacing: '-0.02em' }}>
                 ₹{selectedInvoice.amount?.toLocaleString('en-IN')}
               </div>
             </div>
 
-            {/* Live Generated UPI QR Code Card */}
+            {/* 1. Direct GPay Deep-Link Button */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <a
+                href={`upi://pay?pa=9876543210@upi&pn=Luxury%20Interior%20Design%20Studio&am=${selectedInvoice.amount}&tn=Invoice_${selectedInvoice.invoiceNumber}&cu=INR`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.6rem',
+                  backgroundColor: '#1a73e8',
+                  color: '#ffffff',
+                  padding: '0.85rem 1.25rem',
+                  borderRadius: '12px',
+                  fontWeight: '800',
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 14px rgba(26, 115, 232, 0.35)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Zap size={20} /> Open & Pay via GPay / PhonePe App Direct Link
+              </a>
+            </div>
+
+            {/* 2. QR Code Scanner Card */}
             <div style={{ backgroundColor: '#ffffff', border: '2px dashed #2563eb', borderRadius: '16px', padding: '1.25rem', textAlign: 'center', marginBottom: '1.25rem', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.08)' }}>
               <div style={{ display: 'inline-block', padding: '10px', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: '0.75rem' }}>
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=interiorcraft@upi&pn=InteriorCraftStudio&am=${selectedInvoice.amount}&tn=Invoice_${selectedInvoice.invoiceNumber}&cu=INR`)}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=9876543210@upi&pn=LuxuryInteriorDesignStudio&am=${selectedInvoice.amount}&tn=Invoice_${selectedInvoice.invoiceNumber}&cu=INR`)}`}
                   alt="UPI Payment QR Code"
                   style={{ width: '170px', height: '170px', display: 'block', borderRadius: '8px' }}
                 />
               </div>
-
-              <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#0f172a', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                <Sparkles size={14} color="#2563eb" /> Scan with any UPI App (GPay / PhonePe / Paytm / BHIM)
+              <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                <Sparkles size={14} color="#2563eb" /> Scan with Google Pay, PhonePe, or Paytm Scanner
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', backgroundColor: '#f1f5f9', padding: '0.3rem 0.75rem', borderRadius: '9999px', display: 'inline-block', fontWeight: '600' }}>
-                UPI VPA: <span style={{ color: '#2563eb', fontWeight: '800' }}>interiorcraft@upi</span>
+            </div>
+
+            {/* 3. Copy Phone Number & UPI ID Section */}
+            <div style={{ backgroundColor: '#f8fafc', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase' }}>
+                Or Copy Number / VPA & Pay manually in GPay:
+              </div>
+
+              {/* Copy GPay Mobile Number */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>GPay Phone / Mobile Number:</span>
+                  <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>+91 98765 43210</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyPhone('9876543210')}
+                  style={{ backgroundColor: copiedPhone ? '#f0fdf4' : '#eff6ff', color: copiedPhone ? '#16a34a' : '#2563eb', border: `1px solid ${copiedPhone ? '#bbf7d0' : '#bfdbfe'}`, padding: '0.4rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  {copiedPhone ? '✔ Copied!' : '📋 Copy Number'}
+                </button>
+              </div>
+
+              {/* Copy UPI VPA ID */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>UPI VPA ID:</span>
+                  <strong style={{ color: '#2563eb', fontSize: '0.95rem' }}>9876543210@upi</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyVpa('9876543210@upi')}
+                  style={{ backgroundColor: copiedVpa ? '#f0fdf4' : '#eff6ff', color: copiedVpa ? '#16a34a' : '#2563eb', border: `1px solid ${copiedVpa ? '#bbf7d0' : '#bfdbfe'}`, padding: '0.4rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  {copiedVpa ? '✔ Copied!' : '📋 Copy UPI ID'}
+                </button>
               </div>
             </div>
 

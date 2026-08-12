@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Project = require("../models/project");
 const User = require("../models/User");
 const { createNotification } = require("../utils/notificationHelper");
@@ -376,7 +377,14 @@ exports.createInvoice = async (req, res) => {
 // @access  Private
 exports.payInvoice = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const { id, invoiceId } = req.params;
+
+    const project = await Project.findOne({
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(id) ? id : null },
+        { projectId: id }
+      ]
+    });
 
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
@@ -384,12 +392,26 @@ exports.payInvoice = async (req, res) => {
 
     let invoice = null;
     if (project.invoices && project.invoices.length > 0) {
+      const searchStr = (invoiceId || '').toString();
       invoice = project.invoices.find(
         (i) =>
-          (i._id && i._id.toString() === req.params.invoiceId) ||
-          i.invoiceNumber === req.params.invoiceId
+          (i._id && i._id.toString() === searchStr) ||
+          (i.id && i.id.toString() === searchStr) ||
+          (i.invoiceNumber && i.invoiceNumber.toString() === searchStr) ||
+          (i.invoiceNumber && i.invoiceNumber.toString().toLowerCase() === searchStr.toLowerCase())
       );
+
+      if (!invoice && searchStr !== 'undefined') {
+        invoice = project.invoices.find(
+          (i) => i.invoiceNumber && (i.invoiceNumber.includes(searchStr) || searchStr.includes(i.invoiceNumber))
+        );
+      }
+
+      if (!invoice) {
+        invoice = project.invoices.find(i => i.status !== 'Paid') || project.invoices[0];
+      }
     }
+
     if (!invoice) {
       return res.status(404).json({ success: false, message: "Invoice not found" });
     }
