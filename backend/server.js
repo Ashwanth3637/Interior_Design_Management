@@ -12,13 +12,14 @@ app.use(async (req, res, next) => {
         await connectDB();
         next();
     } catch (err) {
-        console.error("DB Connection Error:", err);
+        console.error("DB Connection Error:", err.message);
         return res.status(500).json({
             success: false,
-            message: "Database connection error. Please check MONGO_URI environment variable."
+            message: err.message || "Database connection error."
         });
     }
 });
+
 
 // Middleware
 app.use(cors());
