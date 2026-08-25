@@ -1,8 +1,6 @@
 const mongoose = require('mongoose');
 const seedData = require('../utils/seeder');
 
-let isConnected = false;
-
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) {
     return;
@@ -16,19 +14,21 @@ const connectDB = async () => {
 
   try {
     const conn = await mongoose.connect(primaryUri, { serverSelectionTimeoutMS: 5000 });
-    isConnected = true;
     console.log(`MongoDB Connected: ${conn.connection.host}`);
-    await seedData();
+    
+    // Only run seeder during local development to avoid serverless timeouts
+    if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+      await seedData();
+    }
   } catch (error) {
-    console.error(`MongoDB Atlas connection error: ${error.message}`);
+    console.error(`MongoDB connection error: ${error.message}`);
     if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      throw new Error(`MongoDB Atlas Connection Failed (${error.message}). Ensure MongoDB Atlas Network Access IP Whitelist includes 0.0.0.0/0.`);
+      throw new Error(`MongoDB Connection Failed (${error.message}).`);
     }
 
     const localUri = process.env.LOCAL_MONGO_URI || 'mongodb://127.0.0.1:27017/interior_design';
     try {
       const conn = await mongoose.connect(localUri, { serverSelectionTimeoutMS: 5000 });
-      isConnected = true;
       console.log(`Local MongoDB Connected: ${conn.connection.host}`);
       await seedData();
     } catch (localErr) {
