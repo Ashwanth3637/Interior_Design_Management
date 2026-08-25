@@ -59,6 +59,11 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
 
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Server Error (${response.status}). Please verify MONGO_URI is configured in Vercel Environment Variables.`);
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -88,6 +93,10 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify(userData),
       });
 
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Server Error (${response.status}). Please verify MONGO_URI is configured in Vercel Environment Variables.`);
+      }
 
       const data = await response.json();
 
@@ -108,6 +117,7 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: err.message };
     }
   };
+
 
   // Logout handler
   const logout = () => {

@@ -6,12 +6,24 @@ const connectDB = require("./config/db");
 // Initialize express app
 const app = express();
 
-// Connect to MongoDB
-connectDB();
+// Ensure MongoDB connection for incoming requests
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (err) {
+        console.error("DB Connection Error:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Database connection error. Please check MONGO_URI environment variable."
+        });
+    }
+});
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
 
 // Routes
 app.use("/api/auth", require("./routes/authRoutes"));
