@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import {
   UserPlus,
   Briefcase,
@@ -65,7 +66,7 @@ const SalesExecutiveDashboard = () => {
         setError('');
       }
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/sales/dashboard', {
+      const res = await fetch(`${API_BASE_URL}/sales/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const resData = await res.json();
@@ -141,7 +142,7 @@ const SalesExecutiveDashboard = () => {
         budget: cleanBudget
       };
 
-      const res = await fetch('http://localhost:5001/api/sales/register-client', {
+      const res = await fetch(`${API_BASE_URL}/sales/register-client`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

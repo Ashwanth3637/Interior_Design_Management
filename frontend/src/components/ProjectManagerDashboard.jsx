@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import {
   Briefcase,
   Clock,
@@ -123,7 +124,7 @@ const ProjectManagerDashboard = () => {
         setError('');
       }
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/pm/dashboard', {
+      const res = await fetch(`${API_BASE_URL}/pm/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const resData = await res.json();
@@ -205,7 +206,7 @@ const ProjectManagerDashboard = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/pm/projects/${selectedProject._id}`, {
+      const res = await fetch(`${API_BASE_URL}/pm/projects/${selectedProject._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +253,7 @@ const ProjectManagerDashboard = () => {
       setSubmitting(true);
       setError('');
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/pm/projects/${selectedProject._id}/quotation`, {
+      const res = await fetch(`${API_BASE_URL}/pm/projects/${selectedProject._id}/quotation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +299,7 @@ const ProjectManagerDashboard = () => {
       setSubmitting(true);
       setError('');
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/pm/projects/${selectedProject._id}/second-installment-invoice`, {
+      const res = await fetch(`${API_BASE_URL}/pm/projects/${selectedProject._id}/second-installment-invoice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -326,7 +327,7 @@ const ProjectManagerDashboard = () => {
     if (!window.confirm(`Mark project '${p.projectName}' as COMPLETED?`)) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/pm/projects/${p._id}/approve-progress`, {
+      const res = await fetch(`${API_BASE_URL}/pm/projects/${p._id}/approve-progress`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -350,7 +351,7 @@ const ProjectManagerDashboard = () => {
   const handleResolveIssue = async (projectId, issueId) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/pm/issues/${projectId}/${issueId}`, {
+      const res = await fetch(`${API_BASE_URL}/pm/issues/${projectId}/${issueId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -738,7 +739,7 @@ const ProjectManagerDashboard = () => {
                                     if (window.confirm(`Verify site work completion of "${p.projectName}" and submit to Admin for final handover?`)) {
                                       try {
                                         const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-                                        const res = await fetch(`http://localhost:5001/api/projects/${p._id}/pm-verify-completion`, {
+                                        const res = await fetch(`${API_BASE_URL}/projects/${p._id}/pm-verify-completion`, {
                                           method: 'PUT',
                                           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
                                         });

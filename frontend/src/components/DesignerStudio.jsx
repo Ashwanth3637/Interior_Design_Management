@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import {
   Palette,
   Briefcase,
@@ -141,8 +142,8 @@ const DesignerStudio = () => {
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const isDesignerRole = ['Designer', 'INTERIOR_DESIGNER', 'Interior Designer'].includes(user?.role);
       const url = isDesignerRole
-        ? `http://localhost:5001/api/projects?limit=50&assignedDesigner=${encodeURIComponent(user?.name || '')}`
-        : 'http://localhost:5001/api/projects?limit=50';
+        ? `${API_BASE_URL}/projects?limit=50&assignedDesigner=${encodeURIComponent(user?.name || '')}`
+        : `${API_BASE_URL}/projects?limit=50`;
 
       const res = await fetch(url, {
         headers: {
@@ -216,7 +217,7 @@ const DesignerStudio = () => {
       setSavingProject(true);
       setError('');
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${selectedProject._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +253,7 @@ const DesignerStudio = () => {
       setUploading(true);
       setError('');
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/designs`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${selectedProject._id}/designs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -294,7 +295,7 @@ const DesignerStudio = () => {
       setAddingMaterial(true);
       setError('');
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/materials`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${selectedProject._id}/materials`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -334,7 +335,7 @@ const DesignerStudio = () => {
     if (!window.confirm('Are you sure you want to delete this design concept?')) return;
     try {
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/designs/${designId}`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${selectedProject._id}/designs/${designId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -357,7 +358,7 @@ const DesignerStudio = () => {
     if (!window.confirm('Remove this material item from catalogue?')) return;
     try {
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/materials/${matId}`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${selectedProject._id}/materials/${matId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -382,7 +383,7 @@ const DesignerStudio = () => {
     const statusPayload = isRevision ? 'Revision Submitted' : 'Pending Review';
     try {
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${selectedProject._id}/approve-design`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${selectedProject._id}/approve-design`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -409,7 +410,7 @@ const DesignerStudio = () => {
     if (!window.confirm('Are you sure you want to remove the assigned designer from this project?')) return;
     try {
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${projectId}`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -435,7 +436,7 @@ const DesignerStudio = () => {
     if (!window.confirm('Are you sure you want to completely delete this project?')) return;
     try {
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${projectId}`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1040,7 +1041,7 @@ const DesignerStudio = () => {
                       if (!msgText || !msgText.trim()) return;
                       try {
                         const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-                        const res = await fetch(`http://localhost:5001/api/projects/${prj._id}/messages`, {
+                        const res = await fetch(`${API_BASE_URL}/projects/${prj._id}/messages`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ message: msgText })

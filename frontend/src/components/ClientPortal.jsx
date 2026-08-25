@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import {
   Briefcase,
   User,
@@ -73,7 +74,7 @@ const ClientPortal = () => {
       try {
         const token = sessionStorage.getItem('token') || localStorage.getItem('token');
         const targetId = ds._id || encodeURIComponent(ds.title);
-        await fetch(`http://localhost:5001/api/projects/${project._id}/designs/${targetId}/favorite`, {
+        await fetch(`${API_BASE_URL}/projects/${project._id}/designs/${targetId}/favorite`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
         });
@@ -96,7 +97,7 @@ const ClientPortal = () => {
 
     try {
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${project._id}/messages`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${project._id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ message: msg })
@@ -155,7 +156,7 @@ const ClientPortal = () => {
     try {
       setIsSubmittingReject(true);
       const activeToken = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${project._id}/respond-quotation`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${project._id}/respond-quotation`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -208,7 +209,7 @@ const ClientPortal = () => {
         setError('');
       }
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/clients/my-portal', {
+      const res = await fetch(`${API_BASE_URL}/clients/my-portal`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -294,7 +295,7 @@ const ClientPortal = () => {
         ? feedback.trim() 
         : 'Please update design layout as per client requirements.';
 
-      const res = await fetch(`http://localhost:5001/api/projects/${project._id}/approve-design`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${project._id}/approve-design`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -336,7 +337,7 @@ const ClientPortal = () => {
     try {
       setError('');
       const activeToken = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${project._id}/respond-quotation`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${project._id}/respond-quotation`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -380,7 +381,7 @@ const ClientPortal = () => {
       setIsUploadingPhoto(true);
       setError('');
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/clients/site-photos', {
+      const res = await fetch(`${API_BASE_URL}/clients/site-photos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -419,7 +420,7 @@ const ClientPortal = () => {
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const targetProjId = project._id || project.projectId;
       const targetInvId = selectedInvoice._id || selectedInvoice.invoiceNumber || selectedInvoice.id;
-      const res = await fetch(`http://localhost:5001/api/projects/${targetProjId}/invoices/${targetInvId}/pay`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${targetProjId}/invoices/${targetInvId}/pay`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1574,7 +1575,7 @@ const ClientPortal = () => {
                       if (!chatInput || !chatInput.trim()) return;
                       try {
                         const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-                        const res = await fetch(`http://localhost:5001/api/projects/${project._id}/messages`, {
+                        const res = await fetch(`${API_BASE_URL}/projects/${project._id}/messages`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ message: chatInput })

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import {
   FolderKanban,
   Plus,
@@ -109,7 +110,7 @@ const ProjectManagement = () => {
       });
 
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/projects?${queryParams}`, {
+      const response = await fetch(`${API_BASE_URL}/projects?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -147,7 +148,7 @@ const ProjectManagement = () => {
       setAddingMaterial(true);
       setError('');
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${editingId}/materials`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${editingId}/materials`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +191,7 @@ const ProjectManagement = () => {
       setUploadingDesign(true);
       setError('');
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/projects/${editingId}/designs`, {
+      const res = await fetch(`${API_BASE_URL}/projects/${editingId}/designs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,7 +233,7 @@ const ProjectManagement = () => {
     const fetchEmployeeLists = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5001/api/employees?limit=100', {
+        const res = await fetch(`${API_BASE_URL}/employees?limit=100`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -340,8 +341,8 @@ const ProjectManagement = () => {
     try {
       const token = localStorage.getItem('token');
       const url = editingId
-        ? `http://localhost:5001/api/projects/${editingId}`
-        : 'http://localhost:5001/api/projects';
+        ? `${API_BASE_URL}/projects/${editingId}`
+        : `${API_BASE_URL}/projects`;
 
       const method = editingId ? 'PUT' : 'POST';
 
@@ -372,7 +373,7 @@ const ProjectManagement = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/projects/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -645,7 +646,7 @@ const ProjectManagement = () => {
                             if (window.confirm(`Perform final client handover for "${prj.projectName}"?\n\nThis will mark the project as officially Completed.`)) {
                               try {
                                 const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-                                const res = await fetch(`http://localhost:5001/api/projects/${prj._id}/admin-handover`, {
+                                const res = await fetch(`${API_BASE_URL}/projects/${prj._id}/admin-handover`, {
                                   method: 'PUT',
                                   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
                                 });

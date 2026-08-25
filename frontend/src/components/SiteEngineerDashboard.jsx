@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import {
   HardHat,
   Briefcase,
@@ -61,7 +62,7 @@ const SiteEngineerDashboard = () => {
         setError('');
       }
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/site-engineer/projects?engineer=${encodeURIComponent(user?.name || '')}`, {
+      const res = await fetch(`${API_BASE_URL}/site-engineer/projects?engineer=${encodeURIComponent(user?.name || '')}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -133,7 +134,7 @@ const SiteEngineerDashboard = () => {
       setSubmitting(true);
       setError('');
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/site-engineer/projects/${selectedProject.projectId}/progress`, {
+      const res = await fetch(`${API_BASE_URL}/site-engineer/projects/${selectedProject.projectId}/progress`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +173,7 @@ const SiteEngineerDashboard = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/site-engineer/projects/${selectedProject.projectId}/daily-log`, {
+      const res = await fetch(`${API_BASE_URL}/site-engineer/projects/${selectedProject.projectId}/daily-log`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,7 +207,7 @@ const SiteEngineerDashboard = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/site-engineer/projects/${selectedProject.projectId}/site-images`, {
+      const res = await fetch(`${API_BASE_URL}/site-engineer/projects/${selectedProject.projectId}/site-images`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -240,7 +241,7 @@ const SiteEngineerDashboard = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/site-engineer/projects/${selectedProject.projectId}/material-usage`, {
+      const res = await fetch(`${API_BASE_URL}/site-engineer/projects/${selectedProject.projectId}/material-usage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -274,7 +275,7 @@ const SiteEngineerDashboard = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/site-engineer/projects/${selectedProject.projectId}/report-issue`, {
+      const res = await fetch(`${API_BASE_URL}/site-engineer/projects/${selectedProject.projectId}/report-issue`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -583,7 +584,7 @@ const SiteEngineerDashboard = () => {
                               if (window.confirm('Mark this project as 100% completed and submit to Project Manager for verification?')) {
                                 try {
                                   const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-                                  const res = await fetch(`http://localhost:5001/api/projects/${p._id}/se-mark-completed`, {
+                                  const res = await fetch(`${API_BASE_URL}/projects/${p._id}/se-mark-completed`, {
                                     method: 'PUT',
                                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
                                   });

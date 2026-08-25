@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import {
   Users,
   UserPlus,
@@ -97,7 +98,7 @@ const ClientManagement = () => {
       });
 
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/clients?${queryParams}`, {
+      const response = await fetch(`${API_BASE_URL}/clients?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -127,7 +128,7 @@ const ClientManagement = () => {
   const fetchStaff = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/employees?limit=100', {
+      const res = await fetch(`${API_BASE_URL}/employees?limit=100`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -266,7 +267,7 @@ const ClientManagement = () => {
       setLoadingView(true);
       setIsViewModalOpen(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/clients/${cltId}`, {
+      const res = await fetch(`${API_BASE_URL}/clients/${cltId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -292,8 +293,8 @@ const ClientManagement = () => {
     try {
       const token = localStorage.getItem('token');
       const url = editingId
-        ? `http://localhost:5001/api/clients/${editingId}`
-        : 'http://localhost:5001/api/clients';
+        ? `${API_BASE_URL}/clients/${editingId}`
+        : `${API_BASE_URL}/clients`;
 
       const method = editingId ? 'PUT' : 'POST';
 
@@ -328,7 +329,7 @@ const ClientManagement = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/clients/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/clients/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

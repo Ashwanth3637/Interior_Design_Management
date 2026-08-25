@@ -13,9 +13,11 @@ import {
     Layers,
     ExternalLink
 } from "lucide-react";
+import { API_BASE_URL as BASE_API_URL } from "../config/api";
 import "./NotificationBell.css";
 
-const API_BASE_URL = "http://localhost:5001/api/notifications";
+const API_BASE_URL = `${BASE_API_URL}/notifications`;
+
 
 const NotificationBell = ({ size = 20 }) => {
     const { token, user } = useContext(AuthContext);

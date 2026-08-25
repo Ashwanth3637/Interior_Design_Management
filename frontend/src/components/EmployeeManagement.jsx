@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import {
   Users,
   UserPlus,
@@ -103,7 +104,7 @@ const EmployeeManagement = () => {
       });
 
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/employees?${queryParams}`, {
+      const response = await fetch(`${API_BASE_URL}/employees?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -217,8 +218,8 @@ const EmployeeManagement = () => {
     try {
       const token = localStorage.getItem('token');
       const url = editingId
-        ? `http://localhost:5001/api/employees/${editingId}`
-        : 'http://localhost:5001/api/employees';
+        ? `${API_BASE_URL}/employees/${editingId}`
+        : `${API_BASE_URL}/employees`;
 
       const method = editingId ? 'PUT' : 'POST';
 
@@ -254,7 +255,7 @@ const EmployeeManagement = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/employees/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

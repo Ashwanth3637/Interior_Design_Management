@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import {
   DollarSign,
   FileText,
@@ -93,7 +94,7 @@ const AccountantDashboard = () => {
         setError('');
       }
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/accountant/dashboard', {
+      const res = await fetch(`${API_BASE_URL}/accountant/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const resData = await res.json();
@@ -162,7 +163,7 @@ const AccountantDashboard = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/accountant/invoices', {
+      const res = await fetch(`${API_BASE_URL}/accountant/invoices`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -204,7 +205,7 @@ const AccountantDashboard = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/accountant/invoices/${selectedInvoice.projectId}/${selectedInvoice._id}/payment`, {
+      const res = await fetch(`${API_BASE_URL}/accountant/invoices/${selectedInvoice.projectId}/${selectedInvoice._id}/payment`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -246,7 +247,7 @@ const AccountantDashboard = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/accountant/expenses', {
+      const res = await fetch(`${API_BASE_URL}/accountant/expenses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -274,7 +275,7 @@ const AccountantDashboard = () => {
     if (!window.confirm(`Are you sure you want to delete invoice '${number}'?`)) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/accountant/invoices/${projectId}/${invoiceId}`, {
+      const res = await fetch(`${API_BASE_URL}/accountant/invoices/${projectId}/${invoiceId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -295,7 +296,7 @@ const AccountantDashboard = () => {
     if (!window.confirm('Are you sure you want to delete this expense record?')) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/accountant/expenses/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/accountant/expenses/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

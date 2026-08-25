@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import { API_BASE_URL } from '../config/api';
 import {
   Crown,
   Users,
@@ -37,9 +38,10 @@ const SuperAdminDashboard = () => {
   const fetchSuperAdminStats = async (showAnim = false) => {
     try {
       const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/projects/admin-analytics', {
+      const res = await fetch(`${API_BASE_URL}/projects/admin-analytics`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+
       const data = await res.json();
       if (res.ok && data.success) {
         setStats(data.data);
