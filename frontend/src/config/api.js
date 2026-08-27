@@ -8,7 +8,7 @@ const getApiBaseUrl = () => {
   }
   // If running locally on port 5173 or dev server
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'https://backend-rjzc.onrender.com';
+    return 'https://backend-rjzc.onrender.com/api';
   }
   // Production serverless deployment on Vercel
   return '/api';
