@@ -1630,11 +1630,29 @@ body {
   }
 }
 
-/* Extra-Small Mobile Screens (< 480px - Surface Duo, iPhone SE, Android Phones) */
-@media (max-width: 480px) {
+/* Extra-Small Mobile Screens (< 540px - Surface Duo, Foldables, iPhone SE, Android Phones) */
+@media (max-width: 540px) {
   .landing-nav {
     padding: 0.65rem 0.75rem;
     justify-content: space-between;
+    gap: 0.4rem;
+  }
+
+  .nav-logo {
+    gap: 0.4rem;
+  }
+
+  .logo-icon-bg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .logo-text {
+    font-size: 0.9rem;
+  }
+
+  .nav-links {
+    gap: 0.35rem;
   }
 
   .welcome-text {
@@ -1642,72 +1660,113 @@ body {
   }
 
   .user-welcome-badge {
-    padding: 0.25rem 0.5rem;
+    padding: 0.2rem 0.45rem;
     font-size: 0.75rem;
   }
 
   .nav-btn-primary,
   .nav-btn-secondary {
-    padding: 0.4rem 0.65rem;
-    font-size: 0.775rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.75rem;
+    gap: 0.25rem;
   }
 
   .hero-badge {
-    font-size: 0.775rem;
-    padding: 0.3rem 0.7rem;
-    margin-bottom: 0.75rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .split-hero-container {
+    padding: 0 0.5rem;
+    gap: 1rem;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .hero-text-side {
+    width: 100%;
+    padding: 0;
+    gap: 0.85rem;
   }
 
   .hero-title {
-    font-size: 1.5rem !important;
+    font-size: 1.45rem !important;
     line-height: 1.2 !important;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .hero-subtitle {
     font-size: 0.875rem;
+    line-height: 1.4;
   }
 
   .bullet-card {
-    padding: 0.65rem 0.75rem;
-    gap: 0.6rem;
+    padding: 0.6rem 0.7rem;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
   }
 
   .bullet-card strong {
-    font-size: 0.85rem;
+    font-size: 0.825rem;
   }
 
   .bullet-card p {
-    font-size: 0.775rem;
+    font-size: 0.75rem;
   }
 
   .bullet-icon-box {
-    padding: 0.35rem;
+    padding: 0.3rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .hero-action-primary,
+  .hero-action-secondary {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    box-sizing: border-box;
+    padding: 0.65rem 1rem;
+    font-size: 0.875rem;
   }
 
   .scroll-frame-container {
-    height: 160vh;
+    height: 150vh;
+  }
+
+  .scroll-frame-card {
+    padding: 0.4rem;
+    border-radius: 0.85rem;
   }
 
   .frame-canvas-wrapper {
-    height: 230px !important;
+    height: 220px !important;
+    border-radius: 0.65rem;
   }
 
   .overlay-pill {
-    font-size: 0.7rem;
-    padding: 0.25rem 0.5rem;
+    font-size: 0.675rem;
+    padding: 0.2rem 0.45rem;
   }
 
   .cta-content h2 {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
   }
 
   .cta-content p {
-    font-size: 0.875rem;
+    font-size: 0.85rem;
   }
 
   .cta-buttons {
     flex-direction: column;
     width: 100%;
+    gap: 0.5rem;
   }
 
   .cta-primary-btn,
@@ -1715,7 +1774,45 @@ body {
     width: 100%;
     justify-content: center;
     box-sizing: border-box;
+    padding: 0.65rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  /* Universal Dashboard Responsive Shield for Mobile */
+  .dashboard-container,
+  .client-portal-container,
+  .admin-dashboard,
+  .designer-studio,
+  .site-engineer-dashboard {
+    padding: 0.75rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .dashboard-header,
+  .portal-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .header-actions,
+  .portal-actions {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .modal-card,
+  .modal-dialog,
+  .dialog-content {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 1rem !important;
+    margin: 0 auto !important;
   }
 }
+
 
 
