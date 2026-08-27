@@ -6,7 +6,7 @@ const connectDB = async () => {
     return;
   }
 
-  const primaryUri = process.env.MONGO_URI || process.env.DB_URI;
+  const primaryUri = process.env.MONGO_URI;
 
   if (!primaryUri) {
     throw new Error('MONGO_URI environment variable is missing.');
@@ -15,7 +15,7 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(primaryUri, { serverSelectionTimeoutMS: 5000 });
     console.log(`MongoDB Connected: ${conn.connection.host}`);
-    
+
     // Only run seeder during local development to avoid serverless timeouts
     if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
       await seedData();

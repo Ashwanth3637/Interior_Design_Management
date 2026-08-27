@@ -58,8 +58,13 @@ app.use((err, req, res, next) => {
 // Start Server (Only if not running as a Vercel Serverless Function)
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
     const PORT = process.env.PORT || 5001;
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
         console.log(`🚀 Server is running on port ${PORT}`);
+        try {
+            await connectDB();
+        } catch (err) {
+            console.error("Initial DB Connection Error:", err.message);
+        }
     });
 }
 
