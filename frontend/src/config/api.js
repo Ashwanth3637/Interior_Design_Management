@@ -6,12 +6,7 @@ const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  // If running locally on port 5173 or dev server
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'https://backend-rjzc.onrender.com/api';
-  }
-  // Production serverless deployment on Vercel
-  return '/api';
+  return 'https://backend-rjzc.onrender.com/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
