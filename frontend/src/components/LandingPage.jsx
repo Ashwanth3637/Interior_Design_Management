@@ -20,14 +20,14 @@ const LandingPage = () => {
 
         <div className="nav-links">
           {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.4rem 0.9rem', borderRadius: '9999px', color: '#1e40af', fontSize: '0.875rem', fontWeight: '700' }}>
-                <User size={16} color="#2563eb" /> Welcome
+            <div className="nav-user-group">
+              <div className="user-welcome-badge">
+                <User size={16} color="#2563eb" /> <span className="welcome-text">Welcome</span>
               </div>
               <Link to="/login" className="nav-btn-primary">
                 Go to Dashboard <ArrowRight size={16} />
               </Link>
-              <button onClick={logout} className="nav-btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+              <button onClick={logout} className="nav-btn-secondary logout-btn">
                 <LogOut size={14} /> Logout
               </button>
             </div>

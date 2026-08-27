@@ -1468,32 +1468,254 @@ body {
   border-top: 1px solid #1e293b;
 }
 
-@media (max-width: 900px) {
+/* Nav User Group & Responsive Helpers */
+.nav-user-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.user-welcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  color: #1e40af;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  white-space: nowrap;
+}
+
+/* Global Table & Card Responsive Overflow Wrappers */
+.table-responsive-container,
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ==========================================================================
+   Comprehensive Breakpoints & Responsive Screen Adjustments
+   ========================================================================== */
+
+/* Tablet & Medium Screens (< 1024px) */
+@media (max-width: 1024px) {
+  .split-hero-container {
+    max-width: 100%;
+    padding: 0 1.5rem;
+    gap: 2rem;
+  }
+
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .auth-card {
+    max-width: 420px;
+  }
+}
+
+/* Mobile Devices & Small Tablets (< 768px) */
+@media (max-width: 768px) {
+  .landing-nav {
+    padding: 0.85rem 1rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .nav-logo {
+    gap: 0.5rem;
+  }
+
+  .logo-icon-bg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .logo-text {
+    font-size: 1rem;
+  }
+
+  .nav-links {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nav-btn-primary,
+  .nav-btn-secondary {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.825rem;
+  }
+
   .split-hero-container {
     grid-template-columns: 1fr;
-    gap: 2rem;
+    gap: 1.5rem;
+    padding: 0 1rem;
   }
 
   .hero-text-side {
     position: relative;
     top: 0;
+    padding-top: 0;
+    width: 100%;
   }
 
   .hero-title {
     font-size: 1.85rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .hero-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .hero-action-primary,
+  .hero-action-secondary {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  .scroll-frame-container {
+    height: 200vh;
   }
 
   .scroll-frame-sticky {
-    top: 4rem;
+    top: 4.5rem;
     height: auto;
   }
 
   .frame-canvas-wrapper {
-    height: 280px;
+    height: 300px !important;
   }
 
-  .landing-nav {
-    padding: 1rem 1.25rem;
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .cta-content h2 {
+    font-size: 1.75rem;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .auth-card {
+    padding: 1.75rem 1.25rem;
+    border-radius: 0.75rem;
   }
 }
+
+/* Extra-Small Mobile Screens (< 480px - Surface Duo, iPhone SE, Android Phones) */
+@media (max-width: 480px) {
+  .landing-nav {
+    padding: 0.65rem 0.75rem;
+    justify-content: space-between;
+  }
+
+  .welcome-text {
+    display: none;
+  }
+
+  .user-welcome-badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .nav-btn-primary,
+  .nav-btn-secondary {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.775rem;
+  }
+
+  .hero-badge {
+    font-size: 0.775rem;
+    padding: 0.3rem 0.7rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .hero-title {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .hero-subtitle {
+    font-size: 0.875rem;
+  }
+
+  .bullet-card {
+    padding: 0.65rem 0.75rem;
+    gap: 0.6rem;
+  }
+
+  .bullet-card strong {
+    font-size: 0.85rem;
+  }
+
+  .bullet-card p {
+    font-size: 0.775rem;
+  }
+
+  .bullet-icon-box {
+    padding: 0.35rem;
+  }
+
+  .scroll-frame-container {
+    height: 160vh;
+  }
+
+  .frame-canvas-wrapper {
+    height: 230px !important;
+  }
+
+  .overlay-pill {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .cta-content h2 {
+    font-size: 1.4rem;
+  }
+
+  .cta-content p {
+    font-size: 0.875rem;
+  }
+
+  .cta-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .cta-primary-btn,
+  .cta-secondary-btn {
+    width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+}
+
 
