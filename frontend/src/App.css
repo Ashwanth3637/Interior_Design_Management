@@ -1509,11 +1509,88 @@ body {
 }
 
 /* ==========================================================================
-   Comprehensive Breakpoints & Responsive Screen Adjustments
+   Comprehensive Universal Module Mobile & Tablet Responsiveness (Client Project)
    ========================================================================== */
 
-/* Tablet & Medium Screens (< 1024px) */
+/* Universal Module Container Shields */
+.dashboard-container,
+.client-portal-container,
+.designer-studio-container,
+.project-management-container,
+.employee-mgmt-container,
+.site-engineer-container,
+.accountant-container,
+.sales-container,
+.admin-dashboard,
+.super-admin-dashboard {
+  width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* Universal Table & Scroll Wrappers */
+.table-responsive-container,
+.table-wrapper,
+.table-container,
+.data-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+}
+
+.table-responsive-container table,
+.table-wrapper table,
+.table-container table,
+.data-table-wrapper table {
+  width: 100%;
+  min-width: 600px;
+}
+
+/* Universal Navigation Tabs Scroll Bar */
+.nav-tabs,
+.tabs-header,
+.filter-bar,
+.status-filter-bar,
+.tab-group {
+  display: flex !important;
+  align-items: center !important;
+  overflow-x: auto !important;
+  flex-wrap: nowrap !important;
+  -webkit-overflow-scrolling: touch;
+  gap: 0.5rem !important;
+  width: 100% !important;
+  padding-bottom: 0.5rem !important;
+  scrollbar-width: thin;
+}
+
+.nav-tabs button,
+.tabs-header button,
+.filter-bar button,
+.status-filter-bar button,
+.tab-button {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* Tablet & Medium Screen Overrides (< 1024px) */
 @media (max-width: 1024px) {
+  .analytics-kpi-grid,
+  .kpi-grid,
+  .stats-grid,
+  .role-panels-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+
+  .grid-3-col,
+  .grid-4-col {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
   .split-hero-container {
     max-width: 100%;
     padding: 0 1.5rem;
@@ -1525,12 +1602,13 @@ body {
   }
 
   .auth-card {
-    max-width: 420px;
+    max-width: 440px;
   }
 }
 
-/* Mobile Devices & Small Tablets (< 768px) */
+/* Mobile & Small Tablet Overrides (< 768px) */
 @media (max-width: 768px) {
+  /* Landing Navigation */
   .landing-nav {
     padding: 0.75rem 1rem;
     flex-wrap: wrap;
@@ -1552,18 +1630,14 @@ body {
     font-size: 1rem;
   }
 
-  .nav-links {
-    gap: 0.4rem;
-    flex-wrap: wrap;
-  }
-
+  .nav-links,
   .nav-user-group {
     gap: 0.4rem;
     flex-wrap: wrap;
   }
 
   .user-welcome-badge {
-    display: none; /* Hide welcome pill on mobile to prevent navbar crowding */
+    display: none;
   }
 
   .nav-btn-primary,
@@ -1573,6 +1647,40 @@ body {
     border-radius: 0.4rem;
   }
 
+  /* Module Dashboard Headers */
+  .dashboard-header,
+  .portal-header,
+  .studio-header,
+  .pm-header,
+  .header-title-group {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.85rem !important;
+    width: 100% !important;
+  }
+
+  .header-actions,
+  .portal-actions,
+  .studio-actions,
+  .action-bar {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    justify-content: flex-start !important;
+  }
+
+  .header-actions button,
+  .portal-actions button,
+  .studio-actions button,
+  .action-bar button {
+    flex: 1 1 auto !important;
+    justify-content: center !important;
+    font-size: 0.825rem !important;
+    padding: 0.55rem 0.85rem !important;
+  }
+
+  /* Hero Section */
   .split-hero-container {
     display: flex;
     flex-direction: column;
@@ -1619,7 +1727,6 @@ body {
     font-size: 0.9rem;
   }
 
-  /* Disable 200vh sticky scroll trap on mobile devices */
   .scroll-frame-container {
     height: auto !important;
     position: relative !important;
@@ -1645,18 +1752,24 @@ body {
     border-radius: 0.85rem !important;
   }
 
-  .features-grid {
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
+  /* Grids & Cards */
+  .analytics-kpi-grid,
+  .kpi-grid,
+  .stats-grid,
+  .role-panels-grid,
+  .features-grid,
+  .grid-2-col,
+  .grid-3-col,
+  .grid-4-col {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
   }
 
-  .cta-content h2 {
-    font-size: 1.6rem;
-  }
-
-  .form-row {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
+  .form-row,
+  .modal-grid,
+  .input-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
   }
 
   .auth-card {
@@ -1664,6 +1777,18 @@ body {
     border-radius: 0.85rem;
     width: 100%;
     max-width: 100%;
+  }
+
+  /* Modals & Dialogs */
+  .modal-card,
+  .modal-dialog,
+  .dialog-content {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 1.25rem 1rem !important;
+    margin: 0 auto !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
   }
 }
 
@@ -1720,7 +1845,6 @@ body {
   .cta-buttons {
     flex-direction: column;
     width: 100%;
-    gap: 0.5rem;
   }
 
   .cta-primary-btn,
@@ -1734,18 +1858,23 @@ body {
   .client-portal-container,
   .admin-dashboard,
   .designer-studio,
-  .site-engineer-dashboard {
-    padding: 0.75rem !important;
+  .site-engineer-dashboard,
+  .accountant-dashboard,
+  .sales-dashboard,
+  .project-manager-dashboard {
+    padding: 0.65rem !important;
   }
 
-  .modal-card,
-  .modal-dialog,
-  .dialog-content {
-    width: 95% !important;
-    max-width: 95% !important;
-    padding: 1rem !important;
+  .kpi-card {
+    padding: 0.85rem 0.75rem !important;
+  }
+
+  .kpi-number {
+    font-size: 1.4rem !important;
+  }
+
+  .kpi-icon-box {
+    width: 38px !important;
+    height: 38px !important;
   }
 }
-
-
-
